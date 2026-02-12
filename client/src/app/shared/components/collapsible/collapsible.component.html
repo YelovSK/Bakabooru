@@ -1,0 +1,15 @@
+<button
+  type="button"
+  (click)="toggle()"
+  class="collapsible-header"
+>
+  <span class="collapsible-chevron" [class.expanded]="expanded()">▶</span>
+  <span class="collapsible-title">{{ title() }}</span>
+  <ng-content select="[header]"></ng-content>
+</button>
+
+@if (expanded()) {
+  <div class="collapsible-content">
+    <ng-content></ng-content>
+  </div>
+}

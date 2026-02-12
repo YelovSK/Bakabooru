@@ -52,7 +52,7 @@ public class LibrariesController : ControllerBase
     {
         if (!Directory.Exists(dto.Path))
         {
-            return BadRequest($"Directory specificed does not exist: {dto.Path}");
+            return BadRequest($"Directory specified does not exist: {dto.Path}");
         }
 
         var library = new Library

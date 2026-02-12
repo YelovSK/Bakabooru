@@ -24,3 +24,5 @@ artifacts/
 *.db
 *.db-shm
 *.db-wal
+
+data/

@@ -20,6 +20,7 @@ public class PostsController : ControllerBase
 
     [HttpGet]
     public async Task<ActionResult<PostListDto>> GetPosts(
+        [FromQuery] string? tags = null,
         [FromQuery] int page = 1, 
         [FromQuery] int pageSize = 20)
     {
@@ -28,6 +29,23 @@ public class PostsController : ControllerBase
         if (pageSize > 100) pageSize = 100;
 
         var query = _context.Posts.AsQueryable();
+
+        if (!string.IsNullOrWhiteSpace(tags))
+        {
+            var parsedQuery = Bakabooru.Processing.Pipeline.QueryParser.Parse(tags);
+            
+            // Inclusion logic (AND)
+            foreach (var tag in parsedQuery.IncludedTags)
+            {
+                query = query.Where(p => p.PostTags.Any(pt => pt.Tag.Name == tag));
+            }
+
+            // Exclusion logic (NOT)
+            foreach (var tag in parsedQuery.ExcludedTags)
+            {
+                query = query.Where(p => !p.PostTags.Any(pt => pt.Tag.Name == tag));
+            }
+        }
 
         var totalCount = await query.CountAsync();
         var items = await query
@@ -47,6 +65,8 @@ public class PostsController : ControllerBase
                 Height = p.Height,
                 ContentType = p.ContentType,
                 ImportDate = p.ImportDate,
+                ThumbnailUrl = $"/thumbnails/{p.Md5Hash}.jpg",
+                ContentUrl = $"/api/posts/{p.Id}/content",
                 Tags = p.PostTags.Select(pt => new TagDto
                 {
                     Id = pt.Tag.Id,
@@ -88,6 +108,8 @@ public class PostsController : ControllerBase
             Height = p.Height,
             ContentType = p.ContentType,
             ImportDate = p.ImportDate,
+            ThumbnailUrl = $"/thumbnails/{p.Md5Hash}.jpg",
+            ContentUrl = $"/api/posts/{p.Id}/content",
             Tags = p.PostTags.Select(pt => new TagDto
             {
                 Id = pt.Tag.Id,
@@ -100,7 +122,7 @@ public class PostsController : ControllerBase
     }
 
     [HttpPost("{id}/tags")]
-    public async Task<ActionResult<List<TagDto>>> AddTag(int id, [FromBody] string tagName)
+    public async Task<IActionResult> AddTag(int id, [FromBody] string tagName)
     {
         var post = await _context.Posts
             .Include(p => p.PostTags)
@@ -119,20 +141,19 @@ public class PostsController : ControllerBase
             // Create new tag
             tag = new Tag { Name = tagName };
             _context.Tags.Add(tag);
-            // Save to get Id
             await _context.SaveChangesAsync();
         }
 
         // Check if post already has this tag
         if (post.PostTags.Any(pt => pt.TagId == tag.Id))
         {
-            return Ok("Tag already assigned");
+            return Conflict("Tag already assigned");
         }
 
         post.PostTags.Add(new PostTag { PostId = post.Id, TagId = tag.Id });
         await _context.SaveChangesAsync();
 
-        return CreatedAtAction(nameof(GetPost), new { id = post.Id }, null);
+        return NoContent();
     }
     
     [HttpDelete("{id}/tags/{tagName}")]
@@ -151,5 +172,31 @@ public class PostsController : ControllerBase
         post.PostTags.Remove(postTag);
         await _context.SaveChangesAsync();
         return NoContent();
+    }
+
+    [HttpGet("{id}/content")]
+    public async Task<IActionResult> GetPostContent(int id)
+    {
+        var post = await _context.Posts
+            .Include(p => p.Library)
+            .FirstOrDefaultAsync(p => p.Id == id);
+
+        if (post == null) return NotFound();
+
+        var fullPath = Path.GetFullPath(Path.Combine(post.Library.Path, post.RelativePath));
+        var libraryRoot = Path.GetFullPath(post.Library.Path + Path.DirectorySeparatorChar);
+
+        if (!fullPath.StartsWith(libraryRoot, StringComparison.OrdinalIgnoreCase))
+        {
+            return BadRequest("Invalid file path");
+        }
+
+        if (!System.IO.File.Exists(fullPath))
+        {
+            return NotFound("File not found on disk");
+        }
+
+        var stream = System.IO.File.OpenRead(fullPath);
+        return File(stream, post.ContentType, enableRangeProcessing: true);
     }
 }

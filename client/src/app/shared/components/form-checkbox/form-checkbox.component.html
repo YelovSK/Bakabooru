@@ -1,0 +1,29 @@
+  <div
+    (click)="toggle()"
+    class="group flex items-center cursor-pointer select-none w-fit"
+    [class.opacity-50]="disabled"
+    [class.pointer-events-none]="disabled"
+    tabindex="0"
+    role="checkbox"
+    [attr.aria-checked]="value"
+    (keydown.enter)="toggle()"
+    (keydown.space)="toggle()"
+  >
+    <div
+      class="relative w-10 h-6 transition-colors duration-200 rounded-full border border-glass-border shrink-0"
+      [class.bg-accent-primary]="value"
+      [class.bg-glass-bg]="!value"
+    >
+      <div
+        class="absolute top-0.5 left-1 w-4 h-4 bg-white rounded-full transition-transform duration-200"
+        [class.translate-x-4]="value"
+      ></div>
+    </div>
+    @if (label()) {
+      <span class="ml-3 text-[0.9rem] font-medium text-text-primary group-hover:text-text-secondary transition-colors">
+        {{ label() }}
+      </span>
+    }
+  </div>
+  
+  <app-form-errors [control]="ngControl" [label]="label()"></app-form-errors>

@@ -25,7 +25,7 @@ public class Post
     [MaxLength(100)]
     public string ContentType { get; set; } = string.Empty;
     
-    public DateTime ImportDate { get; set; } = DateTime.UtcNow;
+    public DateTime ImportDate { get; set; }
     
     public ICollection<PostTag> PostTags { get; set; } = new List<PostTag>();
 }

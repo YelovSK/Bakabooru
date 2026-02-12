@@ -1,0 +1,40 @@
+.box-scrollbar::-webkit-scrollbar {
+    width: 6px;
+}
+
+.box-scrollbar::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.box-scrollbar::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 10px;
+}
+
+.box-scrollbar::-webkit-scrollbar-thumb:hover {
+    background: rgba(255, 255, 255, 0.2);
+}
+
+@keyframes fade-in {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+@keyframes zoom-in-95 {
+    from { transform: scale(0.95); }
+    to { transform: scale(1); }
+}
+
+.animate-in {
+    animation-duration: 150ms;
+    animation-timing-function: ease-out;
+    animation-fill-mode: forwards;
+}
+
+.fade-in {
+    animation-name: fade-in;
+}
+
+.zoom-in-95 {
+    animation-name: zoom-in-95;
+}

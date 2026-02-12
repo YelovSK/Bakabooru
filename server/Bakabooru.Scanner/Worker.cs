@@ -1,39 +1,49 @@
+using Bakabooru.Core.Entities;
 using Bakabooru.Core.Interfaces;
+using Bakabooru.Data;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace Bakabooru.Scanner;
 
 public class Worker : BackgroundService
 {
     private readonly ILogger<Worker> _logger;
-    private readonly IScannerService _scannerService;
-    private readonly TimeSpan _scanInterval = TimeSpan.FromHours(1); // Default global interval
+    private readonly IServiceScopeFactory _scopeFactory;
 
-    public Worker(ILogger<Worker> logger, IScannerService scannerService)
+    public Worker(ILogger<Worker> logger, IServiceScopeFactory scopeFactory)
     {
         _logger = logger;
-        _scannerService = scannerService;
+        _scopeFactory = scopeFactory;
     }
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        // Initial delay to let app start
-        await Task.Delay(1000, stoppingToken);
+        _logger.LogInformation("Worker ensuring default scheduled jobs exist...");
 
-        while (!stoppingToken.IsCancellationRequested)
+        using (var scope = _scopeFactory.CreateScope())
         {
-            try
-            {
-                _logger.LogInformation("Worker starting scan at: {time}", DateTimeOffset.Now);
-                await _scannerService.ScanAllLibrariesAsync(stoppingToken);
-                _logger.LogInformation("Worker completed scan at: {time}", DateTimeOffset.Now);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error during scan");
-            }
+            var dbContext = scope.ServiceProvider.GetRequiredService<BakabooruDbContext>();
+            
+            // Default: Scan All Libraries every 24 hours
+            var scanJobName = "Scan All Libraries";
+            var defaultScanJob = await dbContext.ScheduledJobs
+                .FirstOrDefaultAsync(j => j.JobName == scanJobName, stoppingToken);
 
-            // Wait for next scan cycle
-            await Task.Delay(_scanInterval, stoppingToken);
+            if (defaultScanJob == null)
+            {
+                _logger.LogInformation("Creating default scheduled job: {Name}", scanJobName);
+                dbContext.ScheduledJobs.Add(new ScheduledJob
+                {
+                    JobName = scanJobName,
+                    CronExpression = "1440", // Using Minutes for simplicity based on SchedulerService implementation
+                    IsEnabled = true,
+                    NextRun = DateTime.UtcNow.AddSeconds(5) // Run immediately on first setup
+                });
+                await dbContext.SaveChangesAsync(stoppingToken);
+            }
         }
+        
+        _logger.LogInformation("Worker initialization complete. SchedulerService will handle job execution.");
     }
 }

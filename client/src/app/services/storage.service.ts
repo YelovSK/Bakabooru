@@ -1,0 +1,67 @@
+import { Injectable } from '@angular/core';
+
+export const STORAGE_KEYS = {
+    // Auth
+    USERNAME: 'oxibooru_username',
+    TOKEN: 'oxibooru_token',
+
+    // UI Preferences
+    POSTS_PAGE_SIZE: 'posts_pageSize',
+    POSTS_GRID_SIZE_INDEX: 'posts_gridSizeIndex',
+
+    // Settings
+    POST_SETTINGS: 'oxibooru_post_settings',
+
+    // Prefixes
+    AUTO_TAGGING_SETTINGS: 'oxibooru_at_settings_',
+} as const;
+
+export type StorageKey = typeof STORAGE_KEYS[keyof typeof STORAGE_KEYS];
+
+@Injectable({
+    providedIn: 'root'
+})
+export class StorageService {
+
+    getItem(key: string): string | null {
+        return localStorage.getItem(key);
+    }
+
+    setItem(key: string, value: string): void {
+        localStorage.setItem(key, value);
+    }
+
+    removeItem(key: string): void {
+        localStorage.removeItem(key);
+    }
+
+    // Typed helpers for specific types
+    getNumber(key: string): number | null {
+        const val = this.getItem(key);
+        return val ? Number(val) : null;
+    }
+
+    setNumber(key: string, value: number): void {
+        this.setItem(key, value.toString());
+    }
+
+    getJson<T>(key: string): T | null {
+        const val = this.getItem(key);
+        if (!val) return null;
+        try {
+            return JSON.parse(val) as T;
+        } catch {
+            console.warn(`StorageService: Removing corrupted data for key ${key}`);
+            this.removeItem(key);
+            return null;
+        }
+    }
+
+    setJson<T>(key: string, value: T): void {
+        try {
+            this.setItem(key, JSON.stringify(value));
+        } catch (e) {
+            console.error(`StorageService: Failed to stringify JSON for key ${key}`, e);
+        }
+    }
+}

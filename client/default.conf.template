@@ -1,0 +1,117 @@
+upstream backend {
+    server ${BACKEND_HOST}:${BACKEND_PORT};
+}
+
+server {
+    listen 80;
+    server_tokens off;
+    client_max_body_size 8G;
+
+    # Swagger UI
+    location /docs {
+        proxy_pass http://backend/docs;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    }
+
+    location /apidoc {
+        proxy_pass http://backend/apidoc;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    }
+
+    # API proxy - strips /api prefix
+    location ~ ^/api$ {
+        return 302 /api/;
+    }
+
+    location ~ ^/api/(.*)$ {
+        tcp_nodelay on;
+
+        # CORS headers
+        add_header 'Access-Control-Allow-Origin' '*' always;
+
+        if ($request_method = 'OPTIONS') {
+            add_header 'Access-Control-Allow-Methods' 'GET, POST, PUT, DELETE, OPTIONS';
+            add_header 'Access-Control-Allow-Headers' 'Authorization, Content-Type';
+            return 200;
+        }
+
+        # Compression
+        gzip on;
+        gzip_comp_level 3;
+        gzip_min_length 20;
+        gzip_proxied expired no-cache no-store private auth;
+        gzip_types text/plain application/json;
+
+        # Rewrite and proxy
+        rewrite ^/api/(.*)$ /$1 break;  # ← Key change: use rewrite instead of $1
+        proxy_pass http://backend;       # ← No path here
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_http_version 1.1;
+        proxy_set_header Connection "";
+
+        error_page 500 502 503 504 @badproxy;
+    }
+
+    # Media files
+    location /data/ {
+        alias /data/;
+        sendfile on;
+        tcp_nopush on;
+        tcp_nodelay on;
+
+        # Cache static media files for 1 year
+        add_header Cache-Control "public, max-age=31536000, immutable";
+
+        error_page 403 @unauthorized;
+        error_page 404 @notfound;
+    }
+
+    # SauceNAO proxy
+    location /saucenao/ {
+        proxy_pass https://saucenao.com/;
+        proxy_set_header Host saucenao.com;
+        proxy_set_header User-Agent "Oxibooru/1.0";
+        proxy_ssl_server_name on;
+    }
+
+    # Danbooru proxy
+    location /danbooru/ {
+        proxy_pass https://danbooru.donmai.us/;
+        proxy_set_header Host danbooru.donmai.us;
+        proxy_set_header User-Agent "Oxibooru/1.0";
+        proxy_ssl_server_name on;
+    }
+
+    # Gelbooru proxy
+    location /gelbooru/ {
+        proxy_pass https://gelbooru.com/;
+        proxy_set_header Host gelbooru.com;
+        proxy_set_header User-Agent "Oxibooru/1.0";
+        proxy_ssl_server_name on;
+    }
+
+    # Angular app
+    location / {
+        root /usr/share/nginx/html;
+        try_files $uri $uri/ /index.html;
+        sendfile on;
+        tcp_nopush on;
+        tcp_nodelay on;
+
+        # Enable gzip for static files if you built with compression
+        gzip_static on;
+        gzip_proxied expired no-cache no-store private auth;
+    }
+
+    # Error handler
+    location @badproxy {
+        return 502 "Failed to connect to oxibooru REST API";
+        default_type text/plain;
+    }
+}

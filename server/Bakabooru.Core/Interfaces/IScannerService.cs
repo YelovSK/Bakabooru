@@ -5,6 +5,6 @@ namespace Bakabooru.Core.Interfaces;
 
 public interface IScannerService
 {
-    Task ScanLibraryAsync(int libraryId, CancellationToken cancellationToken = default);
-    Task ScanAllLibrariesAsync(CancellationToken cancellationToken = default);
+    Task ScanLibraryAsync(int libraryId, IProgress<float>? progress = null, IProgress<string>? status = null, CancellationToken cancellationToken = default);
+    Task ScanAllLibrariesAsync(IProgress<float>? progress = null, IProgress<string>? status = null, CancellationToken cancellationToken = default);
 }

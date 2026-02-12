@@ -1,0 +1,381 @@
+import { Component, inject, input, ChangeDetectionStrategy, signal, effect, DestroyRef, computed } from '@angular/core';
+import { CommonModule } from '@angular/common';
+import { RouterLink, Router } from '@angular/router';
+import { HttpClient } from '@angular/common/http';
+import { Subject, switchMap, tap, catchError, of, map, combineLatest } from 'rxjs';
+import { toObservable, toSignal, takeUntilDestroyed } from '@angular/core/rxjs-interop';
+
+import { BakabooruService } from '@services/api/bakabooru/bakabooru.service';
+import { ConfirmService } from '@services/confirm.service';
+import { SettingsService } from '@services/settings.service';
+import { ToastService } from '@services/toast.service';
+import { environment } from '@env/environment';
+import { TagPipe } from '@shared/pipes/escape-tag.pipe';
+import { escapeTagName } from '@shared/utils/utils';
+import { MicroTag, PostsAround, TagCategory, Tag } from '@models';
+import { ButtonComponent } from '@shared/components/button/button.component';
+import { AutocompleteComponent } from '@shared/components/autocomplete/autocomplete.component';
+import { AutoTaggingResultsComponent } from '@shared/components/auto-tagging-results/auto-tagging-results.component';
+import { SimpleTabsComponent, SimpleTabComponent } from '@shared/components/simple-tabs';
+import { TooltipDirective } from '@shared/directives';
+import { HotkeysService } from '@services/hotkeys.service';
+import { AppLinks } from '@app/app.paths';
+import { PostEditService } from './post-edit.service';
+
+@Component({
+  selector: 'app-post-detail',
+  imports: [CommonModule, RouterLink, TagPipe, ButtonComponent, AutocompleteComponent, AutoTaggingResultsComponent, SimpleTabsComponent, SimpleTabComponent, TooltipDirective],
+  providers: [PostEditService],
+  templateUrl: './post-detail.component.html',
+  styleUrl: './post-detail.component.css',
+  changeDetection: ChangeDetectionStrategy.OnPush
+})
+export class PostDetailComponent {
+  private readonly bakabooru = inject(BakabooruService);
+  private readonly router = inject(Router);
+  private readonly http = inject(HttpClient);
+  private readonly hotkeys = inject(HotkeysService);
+  private readonly destroyRef = inject(DestroyRef);
+  private readonly confirmService = inject(ConfirmService);
+  private readonly settingsService = inject(SettingsService);
+  private readonly toastService = inject(ToastService);
+  readonly editService = inject(PostEditService);
+
+  readonly appLinks = AppLinks;
+
+  // Video settings from user preferences
+  readonly autoPlayVideos = this.settingsService.autoPlayVideos;
+  readonly startVideosMuted = this.settingsService.startVideosMuted;
+
+  id = input.required<string>();
+  query = input<string | null>('');
+
+  environment = environment;
+
+  // Sidebar collapsed state
+  sidebarCollapsed = signal(false);
+
+  // Refresh trigger for re-fetching post after save
+  private refreshTrigger = signal(0);
+
+  // Registered auto-tagging providers
+  registeredProviders = computed(() => this.editService.getRegisteredProviders());
+
+  // Tag autocomplete for edit mode
+  private tagQuery$ = new Subject<string>();
+  tagSuggestions = toSignal(
+    this.tagQuery$.pipe(
+      switchMap(word => {
+        if (word.length < 1) return of([]);
+        return this.bakabooru.getTags(`*${word}* sort:usages`, 0, 10).pipe(
+          map(res => res.results),
+          catchError(() => of([])),
+        );
+      }),
+      takeUntilDestroyed(this.destroyRef),
+    ),
+    { initialValue: [] as Tag[] },
+  );
+  tagSearchValue = signal('');
+
+  // Sources edit value
+  sourcesValue = signal('');
+
+
+
+  post = toSignal(
+    combineLatest([toObservable(this.id), toObservable(this.refreshTrigger)]).pipe(
+      switchMap(([id]) => this.bakabooru.getPost(Number(id)).pipe(
+        // Ensure error doesn't break the component stream
+        catchError((err) => {
+          console.error('Error fetching post detail:', err);
+          return of(null);
+        })
+      ))
+    )
+  );
+
+  // Pre-fetch surrounding posts
+  around = toSignal(
+    combineLatest([toObservable(this.id), toObservable(this.query)]).pipe(
+      switchMap(([id, query]) => this.bakabooru.getPostsAround(Number(id), query!).pipe(
+        tap(around => {
+          // Proactive background preloading for speed
+          if (around.prev) this.bakabooru.getPost(around.prev.id).subscribe();
+          if (around.next) this.bakabooru.getPost(around.next.id).subscribe();
+        }),
+        catchError((err) => {
+          console.error('Around API failed (disabling keyboard nav for this post):', err);
+          return of({ prev: null, next: null } as PostsAround);
+        })
+      ))
+    )
+  );
+
+  // Fetch tag categories for proper tag coloring
+  tagCategories = toSignal(
+    this.bakabooru.getTagCategories().pipe(
+      map(res => res.results),
+      catchError(() => {
+        console.error('Failed to load tag categories');
+        return of([]);
+      })
+    ),
+    { initialValue: [] as TagCategory[] }
+  );
+
+  imageLoading = signal(true);
+
+  constructor() {
+    effect(() => {
+      this.post();
+      this.imageLoading.set(true);
+    });
+
+    // Initialize sources value when entering edit mode
+    effect(() => {
+      const state = this.editService.currentState();
+      if (state && this.sourcesValue() === '') {
+        this.sourcesValue.set(state.sources.join('\n'));
+      }
+      if (!this.editService.isEditing()) {
+        this.sourcesValue.set('');
+        this.tagSearchValue.set('');
+      }
+    });
+
+    this.setupHotkeys();
+  }
+
+  private setupHotkeys() {
+    // Navigate Left
+    this.hotkeys.on('ArrowLeft')
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe(() => {
+        const nav = this.around();
+        if (nav?.prev) {
+          this.router.navigate(AppLinks.post(nav.prev.id), { queryParams: { query: this.query() }, replaceUrl: true });
+        }
+      });
+
+    // Navigate Right
+    this.hotkeys.on('ArrowRight')
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe(() => {
+        const nav = this.around();
+        if (nav?.next) {
+          this.router.navigate(AppLinks.post(nav.next.id), { queryParams: { query: this.query() }, replaceUrl: true });
+        }
+      });
+
+    // Edit mode toggle
+    this.hotkeys.on('e')
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe(() => {
+        if (this.editService.isEditing()) {
+          this.cancelEditing();
+        } else {
+          this.startEditing();
+        }
+      });
+
+    // Delete
+    this.hotkeys.on('d')
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe(() => {
+        if (!this.editService.isEditing()) {
+          this.confirmDelete();
+        }
+      });
+  }
+
+  getTagCategory(tag: MicroTag): TagCategory | undefined {
+    return this.tagCategories().find(cat => cat.name === tag.category);
+  }
+
+  // Sidebar toggle
+  toggleSidebar() {
+    this.sidebarCollapsed.update(v => !v);
+  }
+
+  // Edit mode methods
+  startEditing() {
+    const post = this.post();
+    if (post) {
+      this.editService.startEditing(post);
+      this.sourcesValue.set(post.source?.split('\n').filter(s => s.trim()).join('\n') || '');
+    }
+  }
+
+  cancelEditing() {
+    this.editService.cancelEditing();
+  }
+
+  saveChanges() {
+    this.editService.save(this.destroyRef).subscribe(updatedPost => {
+      if (updatedPost) {
+        // Trigger re-fetch of the post
+        this.refreshTrigger.update(n => n + 1);
+      }
+    });
+  }
+
+  // Safety
+  setSafety(safety: string) {
+    this.editService.setSafety(safety as 'safe' | 'sketchy' | 'unsafe');
+  }
+
+  // Sources
+  onSourcesChange(event: Event) {
+    const value = (event.target as HTMLTextAreaElement).value;
+    this.sourcesValue.set(value);
+    const sources = value.split('\n').map(s => s.trim()).filter(s => s.length > 0);
+    this.editService.setSources(sources);
+  }
+
+  // Tags
+  onTagQueryChange(word: string) {
+    this.tagQuery$.next(escapeTagName(word));
+  }
+
+  onTagSelection(tag: Tag) {
+    this.editService.addTag(tag.names[0]);
+    this.tagSearchValue.set('');
+    this.tagQuery$.next('');
+  }
+
+  onTagSearch(value: string) {
+    // On enter, add the tag directly
+    const trimmed = value.trim();
+    if (trimmed) {
+      this.editService.addTag(trimmed);
+      this.tagSearchValue.set('');
+      this.tagQuery$.next('');
+    }
+  }
+
+  removeTag(tag: string) {
+    this.editService.removeTag(tag);
+  }
+
+  // Auto-tagging
+  triggerAutoTagging() {
+    const post = this.post();
+    if (!post) return;
+
+    // Use HttpClient to fetch through the proxy (avoids CORS)
+    const url = this.environment.mediaBaseUrl + post.contentUrl;
+    this.http.get(url, { responseType: 'blob' })
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe(blob => {
+        const file = new File([blob], `post-${post.id}`, { type: blob.type });
+        this.editService.triggerAutoTagging(file, this.destroyRef);
+      });
+  }
+
+  triggerProviderAutoTagging(providerId: string) {
+    const post = this.post();
+    if (!post) return;
+
+    const url = this.environment.mediaBaseUrl + post.contentUrl;
+    this.http.get(url, { responseType: 'blob' })
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe(blob => {
+        const file = new File([blob], `post-${post.id}`, { type: blob.type });
+        this.editService.triggerProviderAutoTagging(file, providerId, this.destroyRef);
+      });
+  }
+
+  applyAutoTags(providerId: string) {
+    const result = this.editService.autoTags().find(r => r.providerId === providerId);
+    if (!result) return;
+
+    const stateBefore = this.editService.currentState();
+    const tagsBefore = stateBefore?.tags.length || 0;
+
+    this.editService.applyAutoTags(providerId);
+
+    const stateAfter = this.editService.currentState();
+    const tagsAfter = stateAfter?.tags.length || 0;
+    const added = tagsAfter - tagsBefore;
+
+    if (added > 0) {
+      this.toastService.success(`Added ${added} tag${added !== 1 ? 's' : ''} from ${result.provider}`);
+    } else {
+      this.toastService.info(`No new tags added (all already present)`);
+    }
+  }
+
+  applyAutoSources(providerId: string) {
+    const result = this.editService.autoTags().find(r => r.providerId === providerId);
+    if (!result) return;
+
+    const stateBefore = this.editService.currentState();
+    const sourcesBefore = stateBefore?.sources.length || 0;
+
+    this.editService.applyAutoSources(providerId);
+
+    // Update the textarea
+    const state = this.editService.currentState();
+    if (state) {
+      this.sourcesValue.set(state.sources.join('\n'));
+    }
+
+    const sourcesAfter = state?.sources.length || 0;
+    const added = sourcesAfter - sourcesBefore;
+
+    if (added > 0) {
+      this.toastService.success(`Added ${added} source${added !== 1 ? 's' : ''} from ${result.provider}`);
+    } else {
+      this.toastService.info(`No new sources added (all already present)`);
+    }
+  }
+
+  applyAutoSafety(providerId: string) {
+    const result = this.editService.autoTags().find(r => r.providerId === providerId);
+    if (!result?.safety) return;
+
+    const stateBefore = this.editService.currentState();
+    const safetyBefore = stateBefore?.safety;
+
+    this.editService.applyAutoSafety(providerId);
+
+    const stateAfter = this.editService.currentState();
+    const safetyAfter = stateAfter?.safety;
+
+    if (safetyAfter && safetyAfter !== safetyBefore) {
+      this.toastService.success(`Set safety to "${safetyAfter}" from ${result.provider}`);
+    } else {
+      this.toastService.info(`Safety already set to "${safetyAfter}"`);
+    }
+  }
+
+  // Delete
+  confirmDelete() {
+    const post = this.post();
+    if (!post) return;
+
+    this.confirmService.confirm({
+      title: 'Delete Post',
+      message: 'Are you sure you want to delete this post? This action cannot be undone.',
+      confirmText: 'Delete',
+      cancelText: 'Cancel',
+      variant: 'danger'
+    }).subscribe(confirmed => {
+      if (confirmed) {
+        this.editService.delete(post).subscribe(success => {
+          if (success) {
+            const nav = this.around();
+            if (nav?.next) {
+              this.router.navigate(AppLinks.post(nav.next.id), { queryParams: { query: this.query() } });
+            } else if (nav?.prev) {
+              this.router.navigate(AppLinks.post(nav.prev.id), { queryParams: { query: this.query() } });
+            } else {
+              this.router.navigate(AppLinks.posts());
+            }
+          }
+        });
+      }
+    });
+  }
+}

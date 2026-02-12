@@ -1,0 +1,19 @@
+<div class="flex gap-1 border-b border-glass-border mb-4">
+  @for (tab of tabs(); track tab.id()) {
+    <a
+      [routerLink]="[basePath(), tab.id()]"
+      [replaceUrl]="true"
+      routerLinkActive="active-tab"
+      class="tab">
+      @if (tab.icon()) {
+        <i [class]="tab.icon()"></i>
+      }
+      {{ tab.label() }}
+    </a>
+  }
+</div>
+
+<!-- Render active tab content -->
+@if (activeTab().content(); as template) {
+  <ng-container *ngTemplateOutlet="template"></ng-container>
+}

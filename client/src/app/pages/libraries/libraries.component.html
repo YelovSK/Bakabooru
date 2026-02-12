@@ -1,0 +1,35 @@
+<div class="container mx-auto p-4 max-w-4xl">
+    <h1 class="text-2xl font-bold mb-6 text-text">Library Management</h1>
+
+    <!-- Create new library -->
+    <div class="bg-surface-panel p-4 rounded-lg mb-8 shadow-sm">
+        <h2 class="text-xl font-semibold mb-4 text-text">Create New Library</h2>
+        <div class="flex gap-4">
+            <input type="text" [(ngModel)]="newLibraryName" placeholder="Library Name"
+                class="flex-1 px-4 py-2 bg-background border border-border rounded focus:outline-none focus:ring-2 focus:ring-accent-primary text-text"
+                (keyup.enter)="createLibrary()" />
+            <app-button (click)="createLibrary()" [disabled]="!newLibraryName() || isLoading()">
+                Create
+            </app-button>
+        </div>
+    </div>
+
+    <!-- List existing libraries -->
+    <div class="bg-surface-panel p-4 rounded-lg shadow-sm">
+        <h2 class="text-xl font-semibold mb-4 text-text">Existing Libraries</h2>
+
+        <div *ngIf="libraries().length === 0" class="text-text-dim italic">
+            No libraries found.
+        </div>
+
+        <ul class="space-y-2">
+            <li *ngFor="let lib of libraries()"
+                class="flex justify-between items-center p-3 bg-background rounded border border-border">
+                <span class="text-text font-medium">{{ lib.path }}</span>
+                <app-button variant="danger" size="sm" (click)="deleteLibrary(lib)" [disabled]="isLoading()">
+                    Delete
+                </app-button>
+            </li>
+        </ul>
+    </div>
+</div>

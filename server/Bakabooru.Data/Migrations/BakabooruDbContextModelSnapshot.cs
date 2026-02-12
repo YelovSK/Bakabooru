@@ -17,11 +17,127 @@ namespace Bakabooru.Data.Migrations
 #pragma warning disable 612, 618
             modelBuilder.HasAnnotation("ProductVersion", "10.0.2");
 
+            modelBuilder.Entity("Bakabooru.Core.Entities.DuplicateGroup", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER");
+
+                    b.Property<DateTime>("DetectedDate")
+                        .HasColumnType("TEXT");
+
+                    b.Property<bool>("IsResolved")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int?>("SimilarityPercent")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("Type")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("IsResolved");
+
+                    b.ToTable("DuplicateGroups");
+                });
+
+            modelBuilder.Entity("Bakabooru.Core.Entities.DuplicateGroupEntry", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int>("DuplicateGroupId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int>("PostId")
+                        .HasColumnType("INTEGER");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("DuplicateGroupId");
+
+                    b.HasIndex("PostId");
+
+                    b.ToTable("DuplicateGroupEntries");
+                });
+
+            modelBuilder.Entity("Bakabooru.Core.Entities.ExcludedFile", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER");
+
+                    b.Property<DateTime>("ExcludedDate")
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("LibraryId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("Md5Hash")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Reason")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("RelativePath")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("LibraryId", "RelativePath")
+                        .IsUnique();
+
+                    b.ToTable("ExcludedFiles");
+                });
+
+            modelBuilder.Entity("Bakabooru.Core.Entities.JobExecution", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER");
+
+                    b.Property<DateTime?>("EndTime")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("ErrorMessage")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("JobName")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("ResultData")
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime>("StartTime")
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("INTEGER");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("JobName");
+
+                    b.HasIndex("StartTime");
+
+                    b.ToTable("JobExecutions");
+                });
+
             modelBuilder.Entity("Bakabooru.Core.Entities.Library", b =>
                 {
                     b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("INTEGER");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
 
                     b.Property<string>("Path")
                         .IsRequired()
@@ -76,9 +192,9 @@ namespace Bakabooru.Data.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("LibraryId");
-
                     b.HasIndex("Md5Hash");
+
+                    b.HasIndex("LibraryId", "RelativePath");
 
                     b.ToTable("Posts");
                 });
@@ -96,6 +212,34 @@ namespace Bakabooru.Data.Migrations
                     b.HasIndex("TagId");
 
                     b.ToTable("PostTags");
+                });
+
+            modelBuilder.Entity("Bakabooru.Core.Entities.ScheduledJob", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("CronExpression")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<bool>("IsEnabled")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("JobName")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime?>("LastRun")
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime?>("NextRun")
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("ScheduledJobs");
                 });
 
             modelBuilder.Entity("Bakabooru.Core.Entities.Tag", b =>
@@ -144,6 +288,36 @@ namespace Bakabooru.Data.Migrations
                     b.ToTable("TagCategories");
                 });
 
+            modelBuilder.Entity("Bakabooru.Core.Entities.DuplicateGroupEntry", b =>
+                {
+                    b.HasOne("Bakabooru.Core.Entities.DuplicateGroup", "DuplicateGroup")
+                        .WithMany("Entries")
+                        .HasForeignKey("DuplicateGroupId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Bakabooru.Core.Entities.Post", "Post")
+                        .WithMany()
+                        .HasForeignKey("PostId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("DuplicateGroup");
+
+                    b.Navigation("Post");
+                });
+
+            modelBuilder.Entity("Bakabooru.Core.Entities.ExcludedFile", b =>
+                {
+                    b.HasOne("Bakabooru.Core.Entities.Library", "Library")
+                        .WithMany()
+                        .HasForeignKey("LibraryId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Library");
+                });
+
             modelBuilder.Entity("Bakabooru.Core.Entities.Post", b =>
                 {
                     b.HasOne("Bakabooru.Core.Entities.Library", "Library")
@@ -182,6 +356,11 @@ namespace Bakabooru.Data.Migrations
                         .OnDelete(DeleteBehavior.SetNull);
 
                     b.Navigation("TagCategory");
+                });
+
+            modelBuilder.Entity("Bakabooru.Core.Entities.DuplicateGroup", b =>
+                {
+                    b.Navigation("Entries");
                 });
 
             modelBuilder.Entity("Bakabooru.Core.Entities.Post", b =>

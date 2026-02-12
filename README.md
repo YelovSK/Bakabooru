@@ -12,8 +12,20 @@ This repository is organized as a monorepo:
 
 - **`client/`**: The frontend implementation (Angular) - *Planned/Pending*.
 
-## Quick Start (Backend)
+## Quick Start
+To launch the entire development environment (API, Scanner, and Client) at once on Windows, run one of the provided scripts from the root:
 
+**Using PowerShell:**
+```powershell
+.\DevStart.ps1
+```
+
+**Using Command Prompt:**
+```cmd
+DevStart.bat
+```
+
+### Manual Start (Backend)
 1. Navigate to the server folder:
    ```bash
    cd server
@@ -25,6 +37,17 @@ This repository is organized as a monorepo:
 3. Start the API:
    ```bash
    dotnet run --project Bakabooru.Server
+   ```
+
+### Manual Start (Frontend)
+1. Navigate to the client folder:
+   ```bash
+   cd client
+   ```
+2. Run:
+   ```bash
+   npm install
+   npm start
    ```
 
 For detailed documentation, refer to the files in the `server/` directory:

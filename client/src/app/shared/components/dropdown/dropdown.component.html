@@ -1,0 +1,48 @@
+<div class="relative w-full">
+    @if (label()) {
+        <label class="block text-[0.85rem] font-medium text-text-muted mb-1.5 ml-1" [for]="'dropdown-' + label()">{{ label() }}</label>
+    }
+    
+    <div (click)="toggle()" 
+         class="flex items-center justify-between w-full px-4 py-2.5 bg-glass-bg border border-glass-border rounded-xl cursor-pointer transition-all hover:bg-glass-bg-hover group"
+         [class.border-accent-primary]="isOpen()"
+         [class.shadow-[0_0_15px_rgba(56,189,248,0.1)]]="isOpen()"
+         tabindex="0"
+         role="button"
+         (keydown.enter)="toggle()"
+         (keydown.space)="toggle()"
+         [attr.id]="'dropdown-' + label()">
+        
+        <span class="text-[0.9rem] text-text-primary font-medium truncate">
+            {{ selectedOption()?.label || placeholder() }}
+        </span>
+
+        <svg xmlns="http://www.w3.org/2000/svg" 
+             width="18" height="18" 
+             viewBox="0 0 24 24" 
+             fill="none" 
+             stroke="currentColor" 
+             stroke-width="2" 
+             stroke-linecap="round" 
+             stroke-linejoin="round" 
+             class="text-text-muted transition-transform duration-200 group-hover:text-text-secondary"
+             [class.rotate-180]="isOpen()">
+            <polyline points="6 9 12 15 18 9"></polyline>
+        </svg>
+    </div>
+
+    @if (isOpen()) {
+    <ul class="absolute top-[calc(100%+8px)] left-0 right-0 bg-bg-secondary border border-white/10 rounded-xl list-none p-2 m-0 z-[1000] shadow-glass max-h-[300px] overflow-y-auto box-scrollbar animate-in fade-in zoom-in-95 duration-100">
+        @for (option of options(); track $index) {
+        <li (click)="select(option)"
+            tabindex="0"
+            (keydown.enter)="select(option)"
+            class="px-4 py-2.5 rounded-lg cursor-pointer transition-all duration-150 mb-0.5 last:mb-0 hover:bg-accent-primary/15 hover:text-white text-[0.85rem] font-medium text-text-secondary"
+            [class.bg-accent-primary/10]="option.value === value()"
+            [class.text-accent-primary]="option.value === value()">
+            {{ option.label }}
+        </li>
+        }
+    </ul>
+    }
+</div>
