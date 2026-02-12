@@ -1,7 +1,7 @@
 - [x] job progress bar on the jobs page not working (works in info page). Should use the same component
 - [x] when metadata is not yet calculated for a post, it sets width height to 0 (I think), so on post details page the image is invisible because its dimensions are set to 0x0
 - [x] check if ffmpeg stuff cannot be sped up, e.g. dHash calculation and metadata extraction is slow despite the CPU nor HDD seems to be heavily utilized
-- [x] add endpoint for posts around some query (similar to oxibooru), so that I can go to next/previous post in post details with the given filter
+- [x] add endpoint for posts around some query (similar to bakabooru), so that I can go to next/previous post in post details with the given filter
 - [x] implement tag and tag category management (view, add, delete, assign, rename, merge, etc)
 - check if polling jobs API is better than having a websocket connection
 - [x] remove jobs from the info page
@@ -11,10 +11,13 @@
 - [x] per library info should be displayed
 - [x] individual libraries should be scannable
 - [x] implement simple auth (no roles, just putting everything behind a login)
+- [x] posts order should be by the real file creation/modified date
+- ability to add paths to ignore list (e.g. subfolder of a library)
 - add post sources table, APIs, and integrate in UI
 - add the abilitiy to favorite posts
+- remove old compabitility with oxibooru.. just use bakabooru apis. Remove stuff not needed for bakabooru like registration, upload etc
 - add more search options, e.g. by type (image, video), by tag count, favorite, etc
 - add help page with keyboard shortcuts, search syntax, etc
-- dockerize everything (should be able to map db and thumbnail paths)
-- write a script that will migrate tags from oxibooru to bakabooru (go through posts, reverse search, get tags). Will have to decode jxl to jpg first cuz oxibooru doesnt support jxl
+- dockerize everything (should be able to map db and thumbnail paths). Have github action to publish client and server images to ghcr
+- [x] write a script that will migrate tags from bakabooru to bakabooru (go through posts, reverse search, get tags). Will have to decode jxl to jpg first cuz bakabooru doesnt support jxl
 - re-consider how to handle auto-tagging (e.g. should it move to server-side, whether to implement hash-based reverse lookup for gelbooru and danbooru, deepdanbooru, ...)

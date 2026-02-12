@@ -87,7 +87,7 @@ public class PipelineProcessor : IMediaProcessor
         // Track which paths we see on disk for orphan detection
         var seenPaths = new ConcurrentDictionary<string, byte>(StringComparer.OrdinalIgnoreCase);
         // Track posts that need updating (changed files)
-        var postsToUpdate = new ConcurrentBag<(int Id, string NewHash, long NewSize, DateTime NewMtime)>();
+        var postsToUpdate = new ConcurrentBag<(int Id, string NewHash, long NewSize, DateTime NewMtime, bool HashChanged)>();
 
         status?.Report($"Scanning files...");
         _logger.LogInformation("Streaming files from {Path}...", directoryPath);
@@ -137,10 +137,15 @@ public class PipelineProcessor : IMediaProcessor
                     post.ContentHash = update.NewHash;
                     post.SizeBytes = update.NewSize;
                     post.FileModifiedDate = update.NewMtime;
-                    // Reset enrichment fields so they get reprocessed
-                    post.Width = 0;
-                    post.Height = 0;
-                    post.PerceptualHash = null;
+                    post.ImportDate = update.NewMtime;
+
+                    if (update.HashChanged)
+                    {
+                        // Content changed; reset enrichment fields so they get reprocessed.
+                        post.Width = 0;
+                        post.Height = 0;
+                        post.PerceptualHash = null;
+                    }
                 }
             }
 
@@ -203,7 +208,7 @@ public class PipelineProcessor : IMediaProcessor
         Dictionary<string, ExistingPostInfo> existingPosts,
         ConcurrentDictionary<string, byte> knownHashes,
         HashSet<string> excludedPaths,
-        ConcurrentBag<(int Id, string NewHash, long NewSize, DateTime NewMtime)> postsToUpdate,
+        ConcurrentBag<(int Id, string NewHash, long NewSize, DateTime NewMtime, bool HashChanged)> postsToUpdate,
         CancellationToken cancellationToken)
     {
         var relativePath = item.RelativePath;
@@ -225,10 +230,12 @@ public class PipelineProcessor : IMediaProcessor
             var newHash = await ComputeHashAsync(item.FullPath, cancellationToken);
             if (string.IsNullOrEmpty(newHash)) return;
 
-            if (!string.Equals(newHash, existing.Hash, StringComparison.OrdinalIgnoreCase))
+            var hashChanged = !string.Equals(newHash, existing.Hash, StringComparison.OrdinalIgnoreCase);
+            postsToUpdate.Add((existing.Id, newHash, item.SizeBytes, item.LastModifiedUtc, hashChanged));
+
+            if (hashChanged)
             {
                 _logger.LogInformation("File changed: {Path} (size: {OldSize}→{NewSize})", relativePath, existing.SizeBytes, item.SizeBytes);
-                postsToUpdate.Add((existing.Id, newHash, item.SizeBytes, item.LastModifiedUtc));
 
                 // Update the known hash set
                 knownHashes.TryAdd(newHash, 0);
@@ -267,7 +274,7 @@ public class PipelineProcessor : IMediaProcessor
             SizeBytes = item.SizeBytes,
             FileModifiedDate = item.LastModifiedUtc,
             ContentType = contentType,
-            ImportDate = DateTime.UtcNow
+            ImportDate = item.LastModifiedUtc
         };
 
         await _ingestionService.EnqueuePostAsync(post, cancellationToken);

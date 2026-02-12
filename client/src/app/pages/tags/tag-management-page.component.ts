@@ -1,7 +1,8 @@
 import { ChangeDetectionStrategy, Component, OnInit, computed, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { BakabooruService, ManagedTag, ManagedTagCategory } from '@services/api/bakabooru/bakabooru.service';
+import { BakabooruService } from '@services/api/bakabooru/bakabooru.service';
+import { ManagedTag, ManagedTagCategory } from '@services/api/bakabooru/models';
 import { ToastService } from '@services/toast.service';
 import { ButtonComponent } from '@shared/components/button/button.component';
 import { PaginatorComponent } from '@shared/components/paginator/paginator.component';

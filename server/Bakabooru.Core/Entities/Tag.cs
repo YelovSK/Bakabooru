@@ -12,6 +12,8 @@ public class Tag
     
     public int? TagCategoryId { get; set; }
     public TagCategory? TagCategory { get; set; }
+
+    public int PostCount { get; set; }
     
     public ICollection<PostTag> PostTags { get; set; } = new List<PostTag>();
 }

@@ -38,7 +38,7 @@ public class TagsController : ControllerBase
 
         var totalCount = await q.CountAsync(cancellationToken);
         var items = await q
-            .OrderByDescending(t => t.PostTags.Count)
+            .OrderByDescending(t => t.PostCount)
             .ThenBy(t => t.Name)
             .Skip((page - 1) * pageSize)
             .Take(pageSize)
@@ -49,7 +49,7 @@ public class TagsController : ControllerBase
                 CategoryId = t.TagCategoryId,
                 CategoryName = t.TagCategory != null ? t.TagCategory.Name : null,
                 CategoryColor = t.TagCategory != null ? t.TagCategory.Color : null,
-                Usages = t.PostTags.Count
+                Usages = t.PostCount
             })
             .ToListAsync(cancellationToken);
 
@@ -148,7 +148,7 @@ public class TagsController : ControllerBase
                 CategoryId = t.TagCategoryId,
                 CategoryName = t.TagCategory != null ? t.TagCategory.Name : null,
                 CategoryColor = t.TagCategory != null ? t.TagCategory.Color : null,
-                Usages = t.PostTags.Count
+                Usages = t.PostCount
             })
             .FirstAsync();
 

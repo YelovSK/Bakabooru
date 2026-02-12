@@ -4,7 +4,8 @@ import { FormsModule } from '@angular/forms';
 import { toSignal, toObservable } from '@angular/core/rxjs-interop';
 import { catchError, of, switchMap } from 'rxjs';
 
-import { BakabooruService, Library } from '@services/api/bakabooru/bakabooru.service';
+import { BakabooruService } from '@services/api/bakabooru/bakabooru.service';
+import { Library } from '@services/api/bakabooru/models';
 import { ButtonComponent } from '@shared/components/button/button.component';
 import { ToastService } from '@services/toast.service';
 

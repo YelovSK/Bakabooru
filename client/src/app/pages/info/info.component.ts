@@ -1,6 +1,6 @@
 import { Component, inject, signal, OnInit } from '@angular/core';
 import { BakabooruService } from '@services/api/bakabooru/bakabooru.service';
-import { GlobalInfo } from '@services/api/oxibooru/models';
+import { GlobalInfo } from '@services/api/bakabooru/models';
 import { CommonModule, DecimalPipe, DatePipe } from '@angular/common';
 
 @Component({

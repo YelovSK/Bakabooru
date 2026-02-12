@@ -76,7 +76,7 @@ server {
     location /saucenao/ {
         proxy_pass https://saucenao.com/;
         proxy_set_header Host saucenao.com;
-        proxy_set_header User-Agent "Oxibooru/1.0";
+        proxy_set_header User-Agent "Bakabooru/1.0";
         proxy_ssl_server_name on;
     }
 
@@ -84,7 +84,7 @@ server {
     location /danbooru/ {
         proxy_pass https://danbooru.donmai.us/;
         proxy_set_header Host danbooru.donmai.us;
-        proxy_set_header User-Agent "Oxibooru/1.0";
+        proxy_set_header User-Agent "Bakabooru/1.0";
         proxy_ssl_server_name on;
     }
 
@@ -92,7 +92,7 @@ server {
     location /gelbooru/ {
         proxy_pass https://gelbooru.com/;
         proxy_set_header Host gelbooru.com;
-        proxy_set_header User-Agent "Oxibooru/1.0";
+        proxy_set_header User-Agent "Bakabooru/1.0";
         proxy_ssl_server_name on;
     }
 
@@ -111,7 +111,7 @@ server {
 
     # Error handler
     location @badproxy {
-        return 502 "Failed to connect to oxibooru REST API";
+        return 502 "Failed to connect to bakabooru REST API";
         default_type text/plain;
     }
 }

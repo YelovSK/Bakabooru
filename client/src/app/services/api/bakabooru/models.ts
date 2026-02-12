@@ -197,8 +197,8 @@ export interface PagedSearchResult<T> {
 }
 
 export interface PostsAround {
-    prev: MicroPost | null;
-    next: MicroPost | null;
+    prev: Post | null;
+    next: Post | null;
 }
 
 export interface ImageSearchResult {
@@ -209,7 +209,39 @@ export interface ImageSearchResult {
     }[];
 }
 
-export interface OxibooruError {
+export interface AuthSessionResponse {
+    username: string;
+    isAuthenticated: boolean;
+}
+
+export interface Library {
+    id: number;
+    name: string;
+    path: string;
+    scanIntervalHours: number;
+    postCount: number;
+    totalSizeBytes: number;
+    lastImportDate: string | null;
+}
+
+export interface ManagedTagCategory {
+    id: number;
+    name: string;
+    color: string;
+    order: number;
+    tagCount: number;
+}
+
+export interface ManagedTag {
+    id: number;
+    name: string;
+    categoryId: number | null;
+    categoryName: string | null;
+    categoryColor: string | null;
+    usages: number;
+}
+
+export interface BakabooruError {
     name: string;
     title: string;
     description: string;
@@ -234,4 +266,67 @@ export interface GlobalInfo {
         canSendMails: boolean;
         privileges: Record<string, unknown>;
     };
+}
+
+export interface BakabooruPagedResponse<T> {
+    items?: T[];
+    Items?: T[];
+    totalCount?: number;
+    TotalCount?: number;
+}
+
+export interface BakabooruTagDto {
+    id: number;
+    name: string;
+    categoryId: number | null;
+    categoryName: string | null;
+    categoryColor: string | null;
+    usages?: number;
+}
+
+export interface BakabooruPostDto {
+    id: number;
+    libraryId: number;
+    relativePath: string;
+    contentHash: string;
+    width: number;
+    height: number;
+    contentType: string;
+    importDate: string;
+    thumbnailUrl: string;
+    contentUrl: string;
+    tags: BakabooruTagDto[];
+}
+
+export interface BakabooruPostsAroundDto {
+    prev: BakabooruPostDto | null;
+    next: BakabooruPostDto | null;
+}
+
+export interface BakabooruSystemInfoDto {
+    postCount: number;
+    totalSizeBytes: number;
+    tagCount: number;
+    libraryCount: number;
+    serverTime: string;
+}
+
+export interface BakabooruJobInfo {
+    id: string;
+    name: string;
+    status: number;
+    progress: number;
+    message: string;
+    startTime?: string;
+    endTime?: string;
+}
+
+export interface UploadProgressResult {
+    progress: number;
+    token?: string;
+}
+
+export interface UpdatePostMetadata {
+    tags?: string[] | MicroTag[];
+    version?: string;
 }

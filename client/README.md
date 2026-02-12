@@ -2,10 +2,10 @@
 
 Angular frontend for Bakabooru.
 
-This client was adapted from an Oxibooru-focused codebase. The UI is usable for several Bakabooru workflows, but many internals still reflect Oxibooru-era models and compatibility shims.
+This client was adapted from an Bakabooru-focused codebase. The UI is usable for several Bakabooru workflows, but many internals still reflect Bakabooru-era models and compatibility shims.
 
 ## Provenance and Current Direction
-- Origin: Oxibooru/Szurubooru-style client architecture and DTO assumptions.
+- Origin: Bakabooru/Szurubooru-style client architecture and DTO assumptions.
 - Current state: partially adapted to Bakabooru APIs.
 - Result: some pages are functional, while others rely on stubs or incomplete backend coverage.
 
@@ -40,7 +40,7 @@ The following areas are currently usable enough for development/testing:
 - Several methods in `BakabooruService` are placeholders (tags, pools, comments, post edits, uploads, reverse search, etc.)
 - Upload/create-post flow in UI expects APIs that are not fully implemented in Bakabooru backend yet
 - Tag/category management breadth is incomplete (both UI and server)
-- Multiple labels/names still say "Oxibooru" in UI and model namespaces
+- Multiple labels/names still say "Bakabooru" in UI and model namespaces
 
 ## External Integrations (Auto-Tagging)
 Client can call external services through proxy routes:
@@ -53,7 +53,7 @@ Important security note:
 - API keys/provider settings are currently stored client-side (local storage).
 
 ## Docker and Nginx Files
-`client/Dockerfile`, `client/default.conf.template`, and `client/docker-compose.yml.example` are currently legacy/WIP artifacts from earlier Oxibooru-oriented deployment assumptions.
+`client/Dockerfile`, `client/default.conf.template`, and `client/docker-compose.yml.example` are currently legacy/WIP artifacts from earlier Bakabooru-oriented deployment assumptions.
 
 Treat them as starting points, not production-ready authoritative deployment docs.
 

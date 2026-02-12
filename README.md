@@ -4,12 +4,12 @@ Self-hosted booru monorepo (ASP.NET Core backend + Angular client).
 
 ## Current State Snapshot
 - Backend is usable for library scanning, post browsing, job orchestration, and duplicate workflows.
-- Client is present and actively used, but still carries Oxibooru compatibility shims and multiple stubbed API paths.
+- Client is present and actively used, but still carries Bakabooru compatibility shims and multiple stubbed API paths.
 - Large parts of the product are still work in progress.
 
 ## Monorepo Structure
 - `server/` - .NET 10 backend solution (`Bakabooru.Server`, `Bakabooru.Processing`, `Bakabooru.Data`, `Bakabooru.Core`).
-- `client/` - Angular client adapted from an Oxibooru-oriented codebase.
+- `client/` - Angular client adapted from an Bakabooru-oriented codebase.
 - `data/` - runtime storage location (thumbnails/temp/db depending on your config).
 
 ## Prerequisites

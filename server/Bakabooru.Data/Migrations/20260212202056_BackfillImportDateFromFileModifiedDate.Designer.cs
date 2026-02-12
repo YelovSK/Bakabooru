@@ -3,6 +3,7 @@ using System;
 using Bakabooru.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -10,9 +11,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace Bakabooru.Data.Migrations
 {
     [DbContext(typeof(BakabooruDbContext))]
-    partial class BakabooruDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260212202056_BackfillImportDateFromFileModifiedDate")]
+    partial class BackfillImportDateFromFileModifiedDate
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder.HasAnnotation("ProductVersion", "10.0.2");
@@ -216,7 +219,7 @@ namespace Bakabooru.Data.Migrations
 
                     b.HasKey("PostId", "TagId");
 
-                    b.HasIndex("TagId", "PostId");
+                    b.HasIndex("TagId");
 
                     b.ToTable("PostTags");
                 });
@@ -259,9 +262,6 @@ namespace Bakabooru.Data.Migrations
                         .IsRequired()
                         .HasMaxLength(100)
                         .HasColumnType("TEXT");
-
-                    b.Property<int>("PostCount")
-                        .HasColumnType("INTEGER");
 
                     b.Property<int?>("TagCategoryId")
                         .HasColumnType("INTEGER");

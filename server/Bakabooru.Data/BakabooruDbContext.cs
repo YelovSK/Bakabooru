@@ -76,8 +76,17 @@ public class BakabooruDbContext : DbContext
             .HasIndex(p => new { p.ImportDate, p.Id });
 
         modelBuilder.Entity<Post>()
+            .HasIndex(p => new { p.FileModifiedDate, p.Id });
+
+        modelBuilder.Entity<Post>()
             .HasIndex(p => new { p.LibraryId, p.RelativePath });
-            
+
+        modelBuilder.Entity<Post>()
+            .HasIndex(p => new { p.LibraryId, p.RelativePath });
+
+        modelBuilder.Entity<PostTag>()
+            .HasIndex(p => new { p.TagId, p.PostId });
+
         modelBuilder.Entity<Tag>()
             .HasIndex(t => t.Name)
             .IsUnique();

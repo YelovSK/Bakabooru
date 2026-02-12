@@ -3,7 +3,7 @@
   "version": 1,
   "newProjectRoot": "projects",
   "projects": {
-    "oxibooru-angular": {
+    "bakabooru-angular": {
       "projectType": "application",
       "schematics": {},
       "root": "",
@@ -13,7 +13,7 @@
         "build": {
           "builder": "@angular/build:application",
           "options": {
-            "outputPath": "dist/oxibooru-angular",
+            "outputPath": "dist/bakabooru-angular",
             "index": "src/index.html",
             "browser": "src/main.ts",
             "polyfills": [
@@ -77,10 +77,10 @@
           "builder": "@angular/build:dev-server",
           "configurations": {
             "production": {
-              "buildTarget": "oxibooru-angular:build:production"
+              "buildTarget": "bakabooru-angular:build:production"
             },
             "development": {
-              "buildTarget": "oxibooru-angular:build:development"
+              "buildTarget": "bakabooru-angular:build:development"
             }
           },
           "defaultConfiguration": "development"

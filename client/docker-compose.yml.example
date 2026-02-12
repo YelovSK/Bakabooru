@@ -1,6 +1,6 @@
 services:
   server:
-    image: oxibooru/server:latest
+    image: bakabooru/server:latest
     depends_on:
       - sql
     environment:

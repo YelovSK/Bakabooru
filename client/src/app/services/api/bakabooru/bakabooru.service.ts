@@ -6,55 +6,8 @@ import {
 } from "@angular/common/http";
 import { Observable, of, forkJoin, switchMap, throwError } from "rxjs";
 import { catchError, finalize, map, shareReplay } from "rxjs/operators";
-import {
-    Post,
-    Tag,
-    TagCategory,
-    User,
-    PagedSearchResult,
-    UnpagedSearchResult,
-    GlobalInfo,
-    Comment,
-    Pool,
-    PostsAround,
-    PostField,
-    UserRank,
-    ImageSearchResult,
-} from "../oxibooru/models";
 import { environment } from "@env/environment";
-import { StrictEncoder } from "../oxibooru/strict-encoder";
-
-export interface Library {
-    id: number;
-    name: string;
-    path: string;
-    scanIntervalHours: number;
-    postCount: number;
-    totalSizeBytes: number;
-    lastImportDate: string | null;
-}
-
-export interface ManagedTagCategory {
-    id: number;
-    name: string;
-    color: string;
-    order: number;
-    tagCount: number;
-}
-
-export interface ManagedTag {
-    id: number;
-    name: string;
-    categoryId: number | null;
-    categoryName: string | null;
-    categoryColor: string | null;
-    usages: number;
-}
-
-interface AuthSessionResponse {
-    username: string;
-    isAuthenticated: boolean;
-}
+import { AuthSessionResponse, Library, PostField, PagedSearchResult, Post, BakabooruPagedResponse, BakabooruPostDto, BakabooruJobInfo, BakabooruTagDto, GlobalInfo, BakabooruSystemInfoDto, Tag, UnpagedSearchResult, TagCategory, ManagedTagCategory, Pool, PostsAround, UpdatePostMetadata, UploadProgressResult, Safety, ImageSearchResult, ManagedTag, BakabooruPostsAroundDto } from "./models";
 
 @Injectable({
     providedIn: "root",
@@ -63,7 +16,7 @@ export class BakabooruService {
     private baseUrl = environment.apiBaseUrl;
     private authCheckInFlight$: Observable<boolean> | null = null;
 
-    // Kept for compatibility with legacy Oxibooru-based code paths.
+    // Kept for compatibility with legacy Bakabooru-based code paths.
     authHeader = signal<string | null>(null);
     currentUser = signal<string | null>(null);
     isLoggedIn = computed(() => !!this.currentUser());
@@ -160,10 +113,10 @@ export class BakabooruService {
             params = params.set("tags", query);
         }
 
-        return this.http.get<any>(`${this.baseUrl}/posts`, { params }).pipe(
+        return this.http.get<BakabooruPagedResponse<BakabooruPostDto>>(`${this.baseUrl}/posts`, { params }).pipe(
             map(response => {
                 const items = response.items || response.Items || [];
-                const results = items.map((dto: any) => this.mapPost(dto));
+                const results = items.map(dto => this.mapPost(dto));
                 return {
                     query,
                     offset,
@@ -176,8 +129,8 @@ export class BakabooruService {
     }
 
     // --- Admin & Jobs (New) ---
-    getJobs(): Observable<any[]> {
-        return this.http.get<any[]>(`${this.baseUrl}/admin/jobs`);
+    getJobs(): Observable<BakabooruJobInfo[]> {
+        return this.http.get<BakabooruJobInfo[]>(`${this.baseUrl}/admin/jobs`);
     }
 
     cancelJob(jobId: string): Observable<void> {
@@ -192,7 +145,7 @@ export class BakabooruService {
         return this.http.post<void>(`${this.baseUrl}/libraries/${libraryId}/scan`, {});
     }
 
-    private mapPost(dto: any): Post {
+    private mapPost(dto: BakabooruPostDto): Post {
         return {
             id: dto.id,
             version: '1',
@@ -209,10 +162,10 @@ export class BakabooruService {
             contentUrl: dto.contentUrl || `${this.baseUrl}/posts/${dto.id}/content`,
             thumbnailUrl: dto.thumbnailUrl || dto.contentUrl || `${this.baseUrl}/posts/${dto.id}/content`,
             flags: [],
-            tags: (dto.tags || []).map((t: any) => ({
+            tags: (dto.tags || []).map((t: BakabooruTagDto) => ({
                 names: [t.name],
                 category: t.categoryName || 'general',
-                usages: 0
+                usages: t.usages || 0
             })),
             relations: [],
             notes: [],
@@ -235,14 +188,14 @@ export class BakabooruService {
         };
     }
 
-    private getTypeFromContentType(contentType: string): any {
+    private getTypeFromContentType(contentType: string): Post["type"] {
         if (contentType.startsWith('video/')) return 'video';
         if (contentType === 'image/gif') return 'animation';
         return 'image';
     }
 
     getPost(id: number): Observable<Post> {
-        return this.http.get<any>(`${this.baseUrl}/posts/${id}`).pipe(
+        return this.http.get<BakabooruPostDto>(`${this.baseUrl}/posts/${id}`).pipe(
             map(dto => this.mapPost(dto))
         );
     }
@@ -253,7 +206,7 @@ export class BakabooruService {
 
     // --- Stubs for Compatibility ---
     getGlobalInfo(): Observable<GlobalInfo> {
-        return this.http.get<any>(`${this.baseUrl}/system/info`).pipe(
+        return this.http.get<BakabooruSystemInfoDto>(`${this.baseUrl}/system/info`).pipe(
             map(res => ({
                 postCount: res.postCount,
                 diskUsage: res.totalSizeBytes,
@@ -284,10 +237,10 @@ export class BakabooruService {
             .set("page", page.toString())
             .set("pageSize", limit.toString());
 
-        return this.http.get<any>(`${this.baseUrl}/tags`, { params }).pipe(
+        return this.http.get<BakabooruPagedResponse<BakabooruTagDto>>(`${this.baseUrl}/tags`, { params }).pipe(
             map(response => {
                 const items = response.items || response.Items || [];
-                const results = items.map((t: any) => ({
+                const results = items.map(t => ({
                     names: [t.name],
                     category: t.categoryName || 'general',
                     usages: t.usages || 0,
@@ -311,7 +264,7 @@ export class BakabooruService {
     }
 
     getTagCategories(): Observable<UnpagedSearchResult<TagCategory>> {
-        return this.http.get<any[]>(`${this.baseUrl}/tagcategories`).pipe(
+        return this.http.get<ManagedTagCategory[]>(`${this.baseUrl}/tagcategories`).pipe(
             map(items => ({
                 results: (items || []).map(c => ({
                     version: '1',
@@ -358,11 +311,16 @@ export class BakabooruService {
             params = params.set("tags", query);
         }
 
-        return this.http.get<PostsAround>(`${this.baseUrl}/posts/${id}/around`, { params });
+        return this.http.get<BakabooruPostsAroundDto>(`${this.baseUrl}/posts/${id}/around`, { params }).pipe(
+            map(response => ({
+                prev: response.prev ? this.mapPost(response.prev) : null,
+                next: response.next ? this.mapPost(response.next) : null,
+            })),
+        );
     }
 
-    updatePost(id: number, metadata: any): Observable<Post> {
-        const desiredTagsRaw = Array.isArray(metadata?.tags) ? metadata.tags as string[] : null;
+    updatePost(id: number, metadata: UpdatePostMetadata): Observable<Post> {
+        const desiredTagsRaw = this.normalizeUpdateTags(metadata?.tags);
 
         // Current backend only supports incremental tag add/remove endpoints.
         if (desiredTagsRaw === null) {
@@ -398,6 +356,26 @@ export class BakabooruService {
                 return forkJoin(operations).pipe(switchMap(() => this.getPost(id)));
             }),
         );
+    }
+
+    private normalizeUpdateTags(tags: UpdatePostMetadata["tags"]): string[] | null {
+        if (!Array.isArray(tags)) {
+            return null;
+        }
+
+        const normalized: string[] = [];
+        for (const tag of tags) {
+            if (typeof tag === "string") {
+                normalized.push(tag);
+                continue;
+            }
+
+            if (tag && Array.isArray(tag.names) && tag.names.length > 0) {
+                normalized.push(tag.names[0]);
+            }
+        }
+
+        return normalized;
     }
 
     deletePost(id: number, version: string): Observable<void> {
@@ -452,12 +430,12 @@ export class BakabooruService {
         return of({} as Post);
     }
 
-    uploadFile(file: File): Observable<any> {
+    uploadFile(file: File): Observable<UploadProgressResult> {
         // Mock upload progress
         return of({ token: "mock-token", progress: 100 });
     }
 
-    createPost(token: string, safety: string, tags: string[], source: string): Observable<Post> {
+    createPost(token: string, safety: Safety, tags: string[], source: string): Observable<Post> {
         return of({} as Post);
     }
 
@@ -489,7 +467,7 @@ export class BakabooruService {
             .set("page", page.toString())
             .set("pageSize", limit.toString());
 
-        return this.http.get<any>(`${this.baseUrl}/tags`, { params }).pipe(
+        return this.http.get<BakabooruPagedResponse<ManagedTag>>(`${this.baseUrl}/tags`, { params }).pipe(
             map(response => ({
                 query,
                 offset,

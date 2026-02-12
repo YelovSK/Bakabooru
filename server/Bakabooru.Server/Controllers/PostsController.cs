@@ -19,6 +19,56 @@ public class PostsController : ControllerBase
         _context = context;
     }
 
+    private async Task<PostDto?> LoadPostDtoAsync(int id, CancellationToken cancellationToken)
+    {
+        var postCore = await _context.Posts
+            .AsNoTracking()
+            .Where(x => x.Id == id)
+            .Select(post => new
+            {
+                Id = post.Id,
+                LibraryId = post.LibraryId,
+                RelativePath = post.RelativePath,
+                ContentHash = post.ContentHash,
+                Width = post.Width,
+                Height = post.Height,
+                ContentType = post.ContentType,
+                ImportDate = post.ImportDate
+            })
+            .FirstOrDefaultAsync(cancellationToken);
+
+        if (postCore == null) return null;
+
+        var tags = await _context.PostTags
+            .AsNoTracking()
+            .Where(pt => pt.PostId == id)
+            .Select(pt => new TagDto
+            {
+                Id = pt.Tag.Id,
+                Name = pt.Tag.Name,
+                CategoryId = pt.Tag.TagCategoryId,
+                CategoryName = pt.Tag.TagCategory != null ? pt.Tag.TagCategory.Name : null,
+                CategoryColor = pt.Tag.TagCategory != null ? pt.Tag.TagCategory.Color : null,
+                Usages = pt.Tag.PostCount,
+            })
+            .ToListAsync(cancellationToken);
+
+        return new PostDto
+        {
+            Id = postCore.Id,
+            LibraryId = postCore.LibraryId,
+            RelativePath = postCore.RelativePath,
+            ContentHash = postCore.ContentHash,
+            Width = postCore.Width,
+            Height = postCore.Height,
+            ContentType = postCore.ContentType,
+            ImportDate = postCore.ImportDate,
+            ThumbnailUrl = MediaPaths.GetThumbnailUrl(postCore.ContentHash),
+            ContentUrl = MediaPaths.GetPostContentUrl(postCore.Id),
+            Tags = tags
+        };
+    }
+
     private async Task<IQueryable<Post>> ApplyTagFiltersAsync(IQueryable<Post> query, string? tags, CancellationToken cancellationToken)
     {
         if (string.IsNullOrWhiteSpace(tags))
@@ -77,14 +127,15 @@ public class PostsController : ControllerBase
         if (pageSize < 1) pageSize = 20;
         if (pageSize > 100) pageSize = 100;
 
-        var query = await ApplyTagFiltersAsync(_context.Posts.AsQueryable(), tags, cancellationToken);
+        var query = await ApplyTagFiltersAsync(_context.Posts, tags, cancellationToken);
 
         var totalCount = await query.CountAsync(cancellationToken);
-        var rawItems = await query
+        var items = await query
             .OrderByDescending(p => p.ImportDate)
+            .ThenByDescending(p => p.Id)
             .Skip((page - 1) * pageSize)
             .Take(pageSize)
-            .Select(p => new
+            .Select(p => new PostDto
             {
                 Id = p.Id,
                 LibraryId = p.LibraryId,
@@ -94,31 +145,11 @@ public class PostsController : ControllerBase
                 Height = p.Height,
                 ContentType = p.ContentType,
                 ImportDate = p.ImportDate,
-                Tags = p.PostTags.Select(pt => new TagDto
-                {
-                    Id = pt.Tag.Id,
-                    Name = pt.Tag.Name,
-                    CategoryId = pt.Tag.TagCategoryId,
-                    CategoryName = pt.Tag.TagCategory != null ? pt.Tag.TagCategory.Name : null,
-                    CategoryColor = pt.Tag.TagCategory != null ? pt.Tag.TagCategory.Color : null
-                }).ToList()
+                ThumbnailUrl = MediaPaths.GetThumbnailUrl(p.ContentHash),
+                ContentUrl = MediaPaths.GetPostContentUrl(p.Id),
+                Tags = new List<TagDto>(),
             })
             .ToListAsync(cancellationToken);
-
-        var items = rawItems.Select(p => new PostDto
-        {
-            Id = p.Id,
-            LibraryId = p.LibraryId,
-            RelativePath = p.RelativePath,
-            ContentHash = p.ContentHash,
-            Width = p.Width,
-            Height = p.Height,
-            ContentType = p.ContentType,
-            ImportDate = p.ImportDate,
-            ThumbnailUrl = MediaPaths.GetThumbnailUrl(p.ContentHash),
-            ContentUrl = MediaPaths.GetPostContentUrl(p.Id),
-            Tags = p.Tags
-        }).ToList();
 
         return new PostListDto
         {
@@ -171,21 +202,25 @@ public class PostsController : ControllerBase
             })
             .FirstOrDefaultAsync(cancellationToken);
 
-        var prev = prevRaw == null
-            ? null
-            : new MicroPostDto
-            {
-                Id = prevRaw.Id,
-                ThumbnailUrl = MediaPaths.GetThumbnailUrl(prevRaw.ContentHash)
-            };
+        PostDto? prev = null;
+        PostDto? next = null;
 
-        var next = nextRaw == null
-            ? null
-            : new MicroPostDto
-            {
-                Id = nextRaw.Id,
-                ThumbnailUrl = MediaPaths.GetThumbnailUrl(nextRaw.ContentHash)
-            };
+        if (prevRaw != null && nextRaw != null)
+        {
+            var prevTask = LoadPostDtoAsync(prevRaw.Id, cancellationToken);
+            var nextTask = LoadPostDtoAsync(nextRaw.Id, cancellationToken);
+            await Task.WhenAll(prevTask, nextTask);
+            prev = prevTask.Result;
+            next = nextTask.Result;
+        }
+        else if (prevRaw != null)
+        {
+            prev = await LoadPostDtoAsync(prevRaw.Id, cancellationToken);
+        }
+        else if (nextRaw != null)
+        {
+            next = await LoadPostDtoAsync(nextRaw.Id, cancellationToken);
+        }
 
         return Ok(new PostsAroundDto
         {
@@ -197,45 +232,9 @@ public class PostsController : ControllerBase
     [HttpGet("{id}")]
     public async Task<ActionResult<PostDto>> GetPost(int id, CancellationToken cancellationToken = default)
     {
-        var rawPost = await _context.Posts
-            .Where(x => x.Id == id)
-            .Select(post => new
-            {
-                Id = post.Id,
-                LibraryId = post.LibraryId,
-                RelativePath = post.RelativePath,
-                ContentHash = post.ContentHash,
-                Width = post.Width,
-                Height = post.Height,
-                ContentType = post.ContentType,
-                ImportDate = post.ImportDate,
-                Tags = post.PostTags.Select(pt => new TagDto
-                {
-                    Id = pt.Tag.Id,
-                    Name = pt.Tag.Name,
-                    CategoryId = pt.Tag.TagCategoryId,
-                    CategoryName = pt.Tag.TagCategory != null ? pt.Tag.TagCategory.Name : null,
-                    CategoryColor = pt.Tag.TagCategory != null ? pt.Tag.TagCategory.Color : null
-                }).ToList()
-            })
-            .FirstOrDefaultAsync(cancellationToken);
-
-        if (rawPost == null) return NotFound();
-
-        return new PostDto
-        {
-            Id = rawPost.Id,
-            LibraryId = rawPost.LibraryId,
-            RelativePath = rawPost.RelativePath,
-            ContentHash = rawPost.ContentHash,
-            Width = rawPost.Width,
-            Height = rawPost.Height,
-            ContentType = rawPost.ContentType,
-            ImportDate = rawPost.ImportDate,
-            ThumbnailUrl = MediaPaths.GetThumbnailUrl(rawPost.ContentHash),
-            ContentUrl = MediaPaths.GetPostContentUrl(rawPost.Id),
-            Tags = rawPost.Tags
-        };
+        var post = await LoadPostDtoAsync(id, cancellationToken);
+        if (post == null) return NotFound();
+        return post;
     }
 
     [HttpPost("{id}/tags")]
@@ -314,7 +313,6 @@ public class PostsController : ControllerBase
             return NotFound("File not found on disk");
         }
 
-        var stream = System.IO.File.OpenRead(fullPath);
-        return File(stream, post.ContentType, enableRangeProcessing: true);
+        return PhysicalFile(fullPath, post.ContentType, enableRangeProcessing: true);
     }
 }

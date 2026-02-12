@@ -31,6 +31,6 @@ public class MicroPostDto
 
 public class PostsAroundDto
 {
-    public MicroPostDto? Prev { get; set; }
-    public MicroPostDto? Next { get; set; }
+    public PostDto? Prev { get; set; }
+    public PostDto? Next { get; set; }
 }

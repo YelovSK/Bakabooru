@@ -2,7 +2,7 @@ import { Component, inject, input, ChangeDetectionStrategy, signal, effect, Dest
 import { CommonModule } from '@angular/common';
 import { RouterLink, Router } from '@angular/router';
 import { HttpClient } from '@angular/common/http';
-import { Subject, switchMap, tap, catchError, of, map, combineLatest } from 'rxjs';
+import { Subject, switchMap, catchError, of, map, combineLatest, tap } from 'rxjs';
 import { toObservable, toSignal, takeUntilDestroyed } from '@angular/core/rxjs-interop';
 
 import { BakabooruService } from '@services/api/bakabooru/bakabooru.service';
@@ -12,19 +12,19 @@ import { ToastService } from '@services/toast.service';
 import { environment } from '@env/environment';
 import { TagPipe } from '@shared/pipes/escape-tag.pipe';
 import { escapeTagName } from '@shared/utils/utils';
-import { MicroTag, PostsAround, TagCategory, Tag } from '@models';
+import { MicroTag, PostsAround, TagCategory, Tag, Post } from '@models';
 import { ButtonComponent } from '@shared/components/button/button.component';
 import { AutocompleteComponent } from '@shared/components/autocomplete/autocomplete.component';
 import { AutoTaggingResultsComponent } from '@shared/components/auto-tagging-results/auto-tagging-results.component';
 import { SimpleTabsComponent, SimpleTabComponent } from '@shared/components/simple-tabs';
-import { TooltipDirective } from '@shared/directives';
+import { ProgressiveImageDirective, TooltipDirective } from '@shared/directives';
 import { HotkeysService } from '@services/hotkeys.service';
 import { AppLinks } from '@app/app.paths';
 import { PostEditService } from './post-edit.service';
 
 @Component({
   selector: 'app-post-detail',
-  imports: [CommonModule, RouterLink, TagPipe, ButtonComponent, AutocompleteComponent, AutoTaggingResultsComponent, SimpleTabsComponent, SimpleTabComponent, TooltipDirective],
+  imports: [CommonModule, RouterLink, TagPipe, ButtonComponent, AutocompleteComponent, AutoTaggingResultsComponent, SimpleTabsComponent, SimpleTabComponent, TooltipDirective, ProgressiveImageDirective],
   providers: [PostEditService],
   templateUrl: './post-detail.component.html',
   styleUrl: './post-detail.component.css',
@@ -55,8 +55,9 @@ export class PostDetailComponent {
   // Sidebar collapsed state
   sidebarCollapsed = signal(false);
 
-  // Refresh trigger for re-fetching post after save
+  // Triggers a local post stream refresh after in-place edits.
   private refreshTrigger = signal(0);
+  private readonly postCache = signal(new Map<number, Post>());
 
   // Registered auto-tagging providers
   registeredProviders = computed(() => this.editService.getRegisteredProviders());
@@ -85,7 +86,7 @@ export class PostDetailComponent {
 
   post = toSignal(
     combineLatest([toObservable(this.id), toObservable(this.refreshTrigger)]).pipe(
-      switchMap(([id]) => this.bakabooru.getPost(Number(id)).pipe(
+      switchMap(([id]) => this.getPostWithCache(Number(id)).pipe(
         // Ensure error doesn't break the component stream
         catchError((err) => {
           console.error('Error fetching post detail:', err);
@@ -100,9 +101,8 @@ export class PostDetailComponent {
     combineLatest([toObservable(this.id), toObservable(this.query)]).pipe(
       switchMap(([id, query]) => this.bakabooru.getPostsAround(Number(id), query!).pipe(
         tap(around => {
-          // Proactive background preloading for speed
-          if (around.prev) this.bakabooru.getPost(around.prev.id).subscribe();
-          if (around.next) this.bakabooru.getPost(around.next.id).subscribe();
+          if (around.prev) this.setCachedPost(around.prev);
+          if (around.next) this.setCachedPost(around.next);
         }),
         catchError((err) => {
           console.error('Around API failed (disabling keyboard nav for this post):', err);
@@ -145,6 +145,25 @@ export class PostDetailComponent {
     });
 
     this.setupHotkeys();
+  }
+
+  private getPostWithCache(id: number) {
+    const cached = this.postCache().get(id);
+    if (cached) {
+      return of(cached);
+    }
+
+    return this.bakabooru.getPost(id).pipe(
+      tap(post => this.setCachedPost(post)),
+    );
+  }
+
+  private setCachedPost(post: Post) {
+    this.postCache.update(existing => {
+      const next = new Map(existing);
+      next.set(post.id, post);
+      return next;
+    });
   }
 
   private setupHotkeys() {
@@ -214,7 +233,7 @@ export class PostDetailComponent {
   saveChanges() {
     this.editService.save(this.destroyRef).subscribe(updatedPost => {
       if (updatedPost) {
-        // Trigger re-fetch of the post
+        this.setCachedPost(updatedPost);
         this.refreshTrigger.update(n => n + 1);
       }
     });
