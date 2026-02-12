@@ -73,6 +73,9 @@ public class BakabooruDbContext : DbContext
             .HasIndex(p => p.ContentHash);
 
         modelBuilder.Entity<Post>()
+            .HasIndex(p => new { p.ImportDate, p.Id });
+
+        modelBuilder.Entity<Post>()
             .HasIndex(p => new { p.LibraryId, p.RelativePath });
             
         modelBuilder.Entity<Tag>()

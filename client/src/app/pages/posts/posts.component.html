@@ -28,7 +28,12 @@
 
             <!-- Page Size Dropdown -->
             <div class="w-48">
-                <app-dropdown [options]="pageSizeOptions" [value]="pageSize()" (valueChange)="onPageSizeChange($event)"></app-dropdown>
+                <app-form-select
+                    [options]="pageSizeOptions"
+                    [value]="pageSize()"
+                    placeholder="Page size"
+                    (valueChange)="onPageSizeChange($event ?? 50)">
+                </app-form-select>
             </div>
         </div>
     </header>

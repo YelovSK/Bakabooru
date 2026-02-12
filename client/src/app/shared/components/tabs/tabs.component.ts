@@ -39,8 +39,10 @@ export class TabsComponent {
     const allTabs = this.tabs();
     const lastSegment = segments[segments.length - 1];
     
-    // If last segment is a tab id, base path is everything before it
-    if (allTabs.some(t => t.id() === lastSegment)) {
+    // If last segment is a tab id and there is a parent segment,
+    // base path is everything before the tab segment.
+    // This avoids collapsing routes like "/tags" to "/" when a tab id is also "tags".
+    if (allTabs.some(t => t.id() === lastSegment) && segments.length > 1) {
       return '/' + segments.slice(0, -1).join('/');
     }
     // Otherwise, current path is the base

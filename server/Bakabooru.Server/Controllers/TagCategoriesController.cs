@@ -18,7 +18,7 @@ public class TagCategoriesController : ControllerBase
     }
 
     [HttpGet]
-    public async Task<IEnumerable<TagCategoryDto>> GetCategories()
+    public async Task<IEnumerable<TagCategoryDto>> GetCategories(CancellationToken cancellationToken = default)
     {
         return await _context.TagCategories
             .OrderBy(c => c.Order)
@@ -27,9 +27,10 @@ public class TagCategoriesController : ControllerBase
                 Id = c.Id,
                 Name = c.Name,
                 Color = c.Color,
-                Order = c.Order
+                Order = c.Order,
+                TagCount = c.Tags.Count
             })
-            .ToListAsync();
+            .ToListAsync(cancellationToken);
     }
 
     [HttpPost]
@@ -50,7 +51,61 @@ public class TagCategoriesController : ControllerBase
             Id = category.Id,
             Name = category.Name,
             Color = category.Color,
-            Order = category.Order
+            Order = category.Order,
+            TagCount = 0
         });
+    }
+
+    [HttpPut("{id}")]
+    public async Task<ActionResult<TagCategoryDto>> UpdateCategory(int id, [FromBody] UpdateTagCategoryDto dto)
+    {
+        var category = await _context.TagCategories
+            .FirstOrDefaultAsync(c => c.Id == id);
+
+        if (category == null)
+        {
+            return NotFound();
+        }
+
+        category.Name = dto.Name.Trim();
+        category.Color = dto.Color;
+        category.Order = dto.Order;
+        await _context.SaveChangesAsync();
+
+        var tagCount = await _context.Tags.CountAsync(t => t.TagCategoryId == category.Id);
+
+        return Ok(new TagCategoryDto
+        {
+            Id = category.Id,
+            Name = category.Name,
+            Color = category.Color,
+            Order = category.Order,
+            TagCount = tagCount
+        });
+    }
+
+    [HttpDelete("{id}")]
+    public async Task<IActionResult> DeleteCategory(int id)
+    {
+        var category = await _context.TagCategories
+            .FirstOrDefaultAsync(c => c.Id == id);
+
+        if (category == null)
+        {
+            return NotFound();
+        }
+
+        var tags = await _context.Tags
+            .Where(t => t.TagCategoryId == category.Id)
+            .ToListAsync();
+
+        foreach (var tag in tags)
+        {
+            tag.TagCategoryId = null;
+        }
+
+        _context.TagCategories.Remove(category);
+        await _context.SaveChangesAsync();
+        return NoContent();
     }
 }

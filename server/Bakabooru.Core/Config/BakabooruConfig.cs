@@ -41,6 +41,8 @@ public class ScannerConfig
 public class ProcessingConfig
 {
     public bool RunScheduler { get; set; } = true;
+    public int MetadataParallelism { get; set; } = 2;
+    public int SimilarityParallelism { get; set; } = 2;
 }
 
 public class IngestionConfig

@@ -52,8 +52,7 @@ public class JobsController : ControllerBase
         string name,
         [FromQuery]
         [RegularExpression("^(missing|all)$", ErrorMessage = "Mode must be either 'missing' or 'all'.")]
-        string mode = "missing",
-        CancellationToken cancellationToken = default)
+        string mode = "missing")
     {
         try
         {
@@ -61,7 +60,7 @@ public class JobsController : ControllerBase
                 ? JobMode.All 
                 : JobMode.Missing;
 
-            var jobId = await _jobService.StartJobAsync(name, cancellationToken, job => { }, jobMode);
+            var jobId = await _jobService.StartJobAsync(name, CancellationToken.None, job => { }, jobMode);
             return Ok(new StartJobResponseDto { JobId = jobId });
         }
         catch (ArgumentException ex)
@@ -119,9 +118,9 @@ public class JobsController : ControllerBase
     }
 
     [HttpPut("schedules/{id}")]
-    public async Task<ActionResult<ScheduledJobDto>> UpdateSchedule(int id, [FromBody] ScheduledJobUpdateDto update, CancellationToken cancellationToken)
+    public async Task<ActionResult<ScheduledJobDto>> UpdateSchedule(int id, [FromBody] ScheduledJobUpdateDto update)
     {
-        var schedule = await _context.ScheduledJobs.FindAsync(new object[] { id }, cancellationToken);
+        var schedule = await _context.ScheduledJobs.FindAsync(new object[] { id });
         if (schedule == null) return NotFound();
 
         // Validate cron expression
@@ -141,7 +140,7 @@ public class JobsController : ControllerBase
         var cron = Cronos.CronExpression.Parse(schedule.CronExpression);
         schedule.NextRun = cron.GetNextOccurrence(DateTime.UtcNow, inclusive: false);
 
-        await _context.SaveChangesAsync(cancellationToken);
+        await _context.SaveChangesAsync();
         return Ok(new ScheduledJobDto
         {
             Id = schedule.Id,

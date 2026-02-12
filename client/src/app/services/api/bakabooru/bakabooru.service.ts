@@ -1,9 +1,10 @@
 import { Injectable, signal, computed, inject } from "@angular/core";
 import {
     HttpClient,
+    HttpHeaders,
     HttpParams,
 } from "@angular/common/http";
-import { Observable, of } from "rxjs";
+import { Observable, of, forkJoin, switchMap, throwError } from "rxjs";
 import { catchError, finalize, map, shareReplay } from "rxjs/operators";
 import {
     Post,
@@ -31,6 +32,23 @@ export interface Library {
     postCount: number;
     totalSizeBytes: number;
     lastImportDate: string | null;
+}
+
+export interface ManagedTagCategory {
+    id: number;
+    name: string;
+    color: string;
+    order: number;
+    tagCount: number;
+}
+
+export interface ManagedTag {
+    id: number;
+    name: string;
+    categoryId: number | null;
+    categoryName: string | null;
+    categoryColor: string | null;
+    usages: number;
 }
 
 interface AuthSessionResponse {
@@ -260,14 +278,69 @@ export class BakabooruService {
     }
 
     getTags(query = "", offset = 0, limit = 100): Observable<PagedSearchResult<Tag>> {
-        return of({ query, offset, limit, total: 0, results: [] });
+        const page = Math.floor(offset / limit) + 1;
+        const params = new HttpParams()
+            .set("query", query)
+            .set("page", page.toString())
+            .set("pageSize", limit.toString());
+
+        return this.http.get<any>(`${this.baseUrl}/tags`, { params }).pipe(
+            map(response => {
+                const items = response.items || response.Items || [];
+                const results = items.map((t: any) => ({
+                    names: [t.name],
+                    category: t.categoryName || 'general',
+                    usages: t.usages || 0,
+                    version: '1',
+                    implications: [],
+                    suggestions: [],
+                    creationTime: '',
+                    lastEditTime: '',
+                    description: ''
+                } as Tag));
+
+                return {
+                    query,
+                    offset,
+                    limit,
+                    total: response.totalCount || response.TotalCount || 0,
+                    results
+                };
+            })
+        );
     }
 
     getTagCategories(): Observable<UnpagedSearchResult<TagCategory>> {
-        return of({ results: [] });
+        return this.http.get<any[]>(`${this.baseUrl}/tagcategories`).pipe(
+            map(items => ({
+                results: (items || []).map(c => ({
+                    version: '1',
+                    name: c.name,
+                    color: c.color,
+                    usages: c.tagCount || 0,
+                    order: c.order,
+                    default: false
+                } as TagCategory))
+            }))
+        );
     }
 
-    getTag(name: string): Observable<Tag> { return of({} as Tag); }
+    getTag(name: string): Observable<Tag> {
+        const normalizedName = name.trim().toLowerCase();
+        if (!normalizedName) {
+            return throwError(() => new Error("Tag name cannot be empty."));
+        }
+
+        return this.getManagedTags(normalizedName, 0, 100).pipe(
+            map(result => {
+                const existing = result.results.find(t => t.name.toLowerCase() === normalizedName);
+                if (!existing) {
+                    throw new Error(`Tag "${name}" not found.`);
+                }
+                return this.mapManagedTagToTag(existing);
+            }),
+        );
+    }
 
     getPools(): Observable<PagedSearchResult<Pool>> {
         return of({ query: "", offset: 0, limit: 100, total: 0, results: [] });
@@ -289,7 +362,42 @@ export class BakabooruService {
     }
 
     updatePost(id: number, metadata: any): Observable<Post> {
-        return of({} as Post);
+        const desiredTagsRaw = Array.isArray(metadata?.tags) ? metadata.tags as string[] : null;
+
+        // Current backend only supports incremental tag add/remove endpoints.
+        if (desiredTagsRaw === null) {
+            return this.getPost(id);
+        }
+
+        const normalizeTag = (tagName: string) => tagName.trim().toLowerCase();
+        const desiredTags = Array.from(
+            new Set(
+                desiredTagsRaw
+                    .map(t => t?.trim())
+                    .filter((t): t is string => !!t),
+            ),
+        );
+        const desiredTagLookup = new Set(desiredTags.map(normalizeTag));
+
+        return this.getPost(id).pipe(
+            switchMap(post => {
+                const currentTags = Array.from(new Set(post.tags.map(t => t.names[0].trim())));
+                const currentTagLookup = new Set(currentTags.map(normalizeTag));
+                const toAdd = desiredTags.filter(t => !currentTagLookup.has(normalizeTag(t)));
+                const toRemove = currentTags.filter(t => !desiredTagLookup.has(normalizeTag(t)));
+
+                const operations: Observable<unknown>[] = [
+                    ...toAdd.map(tag => this.addTagToPost(id, tag)),
+                    ...toRemove.map(tag => this.removeTagFromPost(id, tag)),
+                ];
+
+                if (operations.length === 0) {
+                    return this.getPost(id);
+                }
+
+                return forkJoin(operations).pipe(switchMap(() => this.getPost(id)));
+            }),
+        );
     }
 
     deletePost(id: number, version: string): Observable<void> {
@@ -297,7 +405,39 @@ export class BakabooruService {
     }
 
     updateTag(name: string, tag: Partial<Tag>): Observable<Tag> {
-        return of({} as Tag);
+        const normalizedName = name.trim().toLowerCase();
+        if (!normalizedName) {
+            return throwError(() => new Error("Tag name cannot be empty."));
+        }
+
+        return this.getManagedTags(normalizedName, 0, 100).pipe(
+            switchMap(result => {
+                const existing = result.results.find(t => t.name.toLowerCase() === normalizedName);
+                if (!existing) {
+                    return throwError(() => new Error(`Tag "${name}" not found.`));
+                }
+
+                const nextName = tag.names?.[0]?.trim().toLowerCase() || existing.name;
+                const categoryName = tag.category?.trim() || null;
+
+                if (categoryName === null || categoryName.toLowerCase() === "general") {
+                    return this.updateManagedTag(existing.id, nextName, null).pipe(map(updated => this.mapManagedTagToTag(updated)));
+                }
+
+                return this.getManagedTagCategories().pipe(
+                    switchMap(categories => {
+                        const category = categories.find(c => c.name.toLowerCase() === categoryName.toLowerCase());
+                        if (!category) {
+                            return throwError(() => new Error(`Category "${categoryName}" not found.`));
+                        }
+
+                        return this.updateManagedTag(existing.id, nextName, category.id).pipe(
+                            map(updated => this.mapManagedTagToTag(updated)),
+                        );
+                    }),
+                );
+            }),
+        );
     }
 
     ratePost(id: number, score: number): Observable<Post> {
@@ -323,5 +463,81 @@ export class BakabooruService {
 
     reverseSearch(file: File): Observable<ImageSearchResult> {
         return of({ exactPost: null, similarPosts: [] });
+    }
+
+    // --- Tag Management ---
+    getManagedTagCategories(): Observable<ManagedTagCategory[]> {
+        return this.http.get<ManagedTagCategory[]>(`${this.baseUrl}/tagcategories`);
+    }
+
+    createTagCategory(name: string, color: string, order: number): Observable<ManagedTagCategory> {
+        return this.http.post<ManagedTagCategory>(`${this.baseUrl}/tagcategories`, { name, color, order });
+    }
+
+    updateTagCategory(id: number, name: string, color: string, order: number): Observable<ManagedTagCategory> {
+        return this.http.put<ManagedTagCategory>(`${this.baseUrl}/tagcategories/${id}`, { name, color, order });
+    }
+
+    deleteTagCategory(id: number): Observable<void> {
+        return this.http.delete<void>(`${this.baseUrl}/tagcategories/${id}`);
+    }
+
+    getManagedTags(query = "", offset = 0, limit = 200): Observable<PagedSearchResult<ManagedTag>> {
+        const page = Math.floor(offset / limit) + 1;
+        const params = new HttpParams()
+            .set("query", query)
+            .set("page", page.toString())
+            .set("pageSize", limit.toString());
+
+        return this.http.get<any>(`${this.baseUrl}/tags`, { params }).pipe(
+            map(response => ({
+                query,
+                offset,
+                limit,
+                total: response.totalCount || response.TotalCount || 0,
+                results: (response.items || response.Items || []) as ManagedTag[]
+            }))
+        );
+    }
+
+    createManagedTag(name: string, categoryId: number | null): Observable<ManagedTag> {
+        return this.http.post<ManagedTag>(`${this.baseUrl}/tags`, { name, categoryId });
+    }
+
+    updateManagedTag(id: number, name: string, categoryId: number | null): Observable<ManagedTag> {
+        return this.http.put<ManagedTag>(`${this.baseUrl}/tags/${id}`, { name, categoryId });
+    }
+
+    mergeTag(sourceTagId: number, targetTagId: number): Observable<void> {
+        return this.http.post<void>(`${this.baseUrl}/tags/${sourceTagId}/merge`, { targetTagId });
+    }
+
+    deleteManagedTag(id: number): Observable<void> {
+        return this.http.delete<void>(`${this.baseUrl}/tags/${id}`);
+    }
+
+    private addTagToPost(id: number, tagName: string): Observable<void> {
+        const headers = new HttpHeaders({
+            "Content-Type": "application/json",
+        });
+        return this.http.post<void>(`${this.baseUrl}/posts/${id}/tags`, JSON.stringify(tagName), { headers });
+    }
+
+    private removeTagFromPost(id: number, tagName: string): Observable<void> {
+        return this.http.delete<void>(`${this.baseUrl}/posts/${id}/tags/${encodeURIComponent(tagName)}`);
+    }
+
+    private mapManagedTagToTag(tag: ManagedTag): Tag {
+        return {
+            names: [tag.name],
+            category: tag.categoryName || "general",
+            usages: tag.usages || 0,
+            version: "1",
+            implications: [],
+            suggestions: [],
+            creationTime: "",
+            lastEditTime: "",
+            description: "",
+        };
     }
 }

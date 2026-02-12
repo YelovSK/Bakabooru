@@ -1,9 +1,12 @@
 using Bakabooru.Core;
+using Bakabooru.Core.Config;
 using Bakabooru.Core.Interfaces;
 using Bakabooru.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
+using System.Collections.Concurrent;
 
 namespace Bakabooru.Processing.Jobs;
 
@@ -11,11 +14,16 @@ public class ComputeSimilarityJob : IJob
 {
     private readonly IServiceScopeFactory _scopeFactory;
     private readonly ILogger<ComputeSimilarityJob> _logger;
+    private readonly int _parallelism;
 
-    public ComputeSimilarityJob(IServiceScopeFactory scopeFactory, ILogger<ComputeSimilarityJob> logger)
+    public ComputeSimilarityJob(
+        IServiceScopeFactory scopeFactory,
+        ILogger<ComputeSimilarityJob> logger,
+        IOptions<BakabooruConfig> config)
     {
         _scopeFactory = scopeFactory;
         _logger = logger;
+        _parallelism = Math.Max(1, config.Value.Processing.SimilarityParallelism);
     }
 
     public string Name => "Compute Similarity";
@@ -57,27 +65,42 @@ public class ComputeSimilarityJob : IJob
         for (int i = 0; i < posts.Count; i += batchSize)
         {
             var batch = posts.Skip(i).Take(batchSize).ToList();
+            var results = new ConcurrentBag<(int PostId, ulong? Hash)>();
 
-            foreach (var post in batch)
-            {
-                context.CancellationToken.ThrowIfCancellationRequested();
-                try
+            await Parallel.ForEachAsync(
+                batch,
+                new ParallelOptions
                 {
-                    var fullPath = Path.Combine(post.LibraryPath, post.RelativePath);
-                    var hash = await similarityService.ComputeHashAsync(fullPath, context.CancellationToken);
-
-                    var entity = await db.Posts.FindAsync(new object[] { post.Id }, context.CancellationToken);
-                    if (entity != null)
+                    MaxDegreeOfParallelism = _parallelism,
+                    CancellationToken = context.CancellationToken
+                },
+                async (post, ct) =>
+                {
+                    try
                     {
-                        entity.PerceptualHash = hash;
-                    }
+                        var fullPath = Path.Combine(post.LibraryPath, post.RelativePath);
+                        var hash = await similarityService.ComputeHashAsync(fullPath, ct);
 
-                    processed++;
-                }
-                catch (Exception ex)
+                        results.Add((post.Id, hash));
+                        Interlocked.Increment(ref processed);
+                    }
+                    catch (Exception ex)
+                    {
+                        Interlocked.Increment(ref failed);
+                        _logger.LogWarning(ex, "Failed to compute similarity hash for post {Id}: {Path}", post.Id, post.RelativePath);
+                    }
+                });
+
+            var entityIds = batch.Select(p => p.Id).ToList();
+            var entities = await db.Posts
+                .Where(p => entityIds.Contains(p.Id))
+                .ToDictionaryAsync(p => p.Id, context.CancellationToken);
+
+            foreach (var result in results)
+            {
+                if (entities.TryGetValue(result.PostId, out var entity))
                 {
-                    failed++;
-                    _logger.LogWarning(ex, "Failed to compute similarity hash for post {Id}: {Path}", post.Id, post.RelativePath);
+                    entity.PerceptualHash = result.Hash;
                 }
             }
 

@@ -23,11 +23,11 @@ public class LibrariesController : ControllerBase
     }
 
     [HttpGet]
-    public async Task<ActionResult<IEnumerable<LibraryDto>>> GetLibraries()
+    public async Task<ActionResult<IEnumerable<LibraryDto>>> GetLibraries(CancellationToken cancellationToken = default)
     {
         var libraries = await _context.Libraries
             .AsNoTracking()
-            .ToListAsync();
+            .ToListAsync(cancellationToken);
 
         var stats = await _context.Posts
             .AsNoTracking()
@@ -39,7 +39,7 @@ public class LibrariesController : ControllerBase
                 TotalSizeBytes = g.Sum(p => p.SizeBytes),
                 LastImportDate = g.Max(p => p.ImportDate)
             })
-            .ToDictionaryAsync(x => x.LibraryId);
+            .ToDictionaryAsync(x => x.LibraryId, cancellationToken);
 
         return libraries.Select(l =>
         {
@@ -58,9 +58,9 @@ public class LibrariesController : ControllerBase
     }
 
     [HttpGet("{id}")]
-    public async Task<ActionResult<LibraryDto>> GetLibrary(int id)
+    public async Task<ActionResult<LibraryDto>> GetLibrary(int id, CancellationToken cancellationToken = default)
     {
-        var library = await _context.Libraries.FindAsync(id);
+        var library = await _context.Libraries.FindAsync(new object[] { id }, cancellationToken);
 
         if (library == null)
         {
@@ -73,12 +73,12 @@ public class LibrariesController : ControllerBase
             Name = library.Name,
             Path = library.Path,
             ScanIntervalHours = library.ScanInterval.TotalHours,
-            PostCount = await _context.Posts.CountAsync(p => p.LibraryId == library.Id),
+            PostCount = await _context.Posts.CountAsync(p => p.LibraryId == library.Id, cancellationToken),
             TotalSizeBytes = await _context.Posts
                 .Where(p => p.LibraryId == library.Id)
                 .Select(p => (long?)p.SizeBytes)
-                .SumAsync() ?? 0,
-            LastImportDate = await _context.Posts.Where(p => p.LibraryId == library.Id).MaxAsync(p => (DateTime?)p.ImportDate)
+                .SumAsync(cancellationToken) ?? 0,
+            LastImportDate = await _context.Posts.Where(p => p.LibraryId == library.Id).MaxAsync(p => (DateTime?)p.ImportDate, cancellationToken)
         };
     }
 
@@ -115,9 +115,9 @@ public class LibrariesController : ControllerBase
     }
 
     [HttpPost("{id}/scan")]
-    public async Task<ActionResult<object>> ScanLibrary(int id, CancellationToken cancellationToken)
+    public async Task<ActionResult<object>> ScanLibrary(int id)
     {
-        var libraryExists = await _context.Libraries.AnyAsync(l => l.Id == id, cancellationToken);
+        var libraryExists = await _context.Libraries.AnyAsync(l => l.Id == id);
         if (!libraryExists)
         {
             return NotFound("Library not found.");
@@ -134,7 +134,7 @@ public class LibrariesController : ControllerBase
     [HttpDelete("{id}")]
     public async Task<IActionResult> DeleteLibrary(int id)
     {
-        var library = await _context.Libraries.FindAsync(id);
+        var library = await _context.Libraries.FindAsync(new object[] { id });
         if (library == null)
         {
             return NotFound();
@@ -149,7 +149,7 @@ public class LibrariesController : ControllerBase
     [HttpPatch("{id}/name")]
     public async Task<ActionResult<LibraryDto>> RenameLibrary(int id, [FromBody] RenameLibraryDto dto)
     {
-        var library = await _context.Libraries.FindAsync(id);
+        var library = await _context.Libraries.FindAsync(new object[] { id });
         if (library == null)
         {
             return NotFound();

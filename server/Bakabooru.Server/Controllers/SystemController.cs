@@ -17,12 +17,12 @@ public class SystemController : ControllerBase
     }
 
     [HttpGet("info")]
-    public async Task<ActionResult<SystemInfoDto>> GetInfo()
+    public async Task<ActionResult<SystemInfoDto>> GetInfo(CancellationToken cancellationToken = default)
     {
-        var postCount = await _dbContext.Posts.CountAsync();
-        var totalSizeBytes = await _dbContext.Posts.SumAsync(p => p.SizeBytes);
-        var tagCount = await _dbContext.Tags.CountAsync();
-        var libraryCount = await _dbContext.Libraries.CountAsync();
+        var postCount = await _dbContext.Posts.CountAsync(cancellationToken);
+        var totalSizeBytes = await _dbContext.Posts.SumAsync(p => p.SizeBytes, cancellationToken);
+        var tagCount = await _dbContext.Tags.CountAsync(cancellationToken);
+        var libraryCount = await _dbContext.Libraries.CountAsync(cancellationToken);
 
         return Ok(new SystemInfoDto
         {

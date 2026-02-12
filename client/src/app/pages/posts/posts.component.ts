@@ -8,7 +8,7 @@ import { HotkeysService } from '@services/hotkeys.service';
 import { environment } from '@env/environment';
 import { PagedSearchResult, Post, Tag } from '@models';
 import { AutocompleteComponent } from '@shared/components/autocomplete/autocomplete.component';
-import { DropdownComponent, DropdownOption } from '@shared/components/dropdown/dropdown.component';
+import { FormSelectComponent, FormSelectOption } from '@shared/components/form-select/form-select.component';
 import { PaginatorComponent } from '@shared/components/paginator/paginator.component';
 import { escapeTagName } from '@shared/utils/utils';
 import { StorageService, STORAGE_KEYS } from '@services/storage.service';
@@ -28,7 +28,7 @@ interface LoadingState extends PostsState {
 
 @Component({
     selector: 'app-posts',
-    imports: [CommonModule, RouterLink, AutocompleteComponent, DropdownComponent, PaginatorComponent],
+    imports: [CommonModule, RouterLink, AutocompleteComponent, FormSelectComponent, PaginatorComponent],
     templateUrl: './posts.component.html',
     styleUrl: './posts.component.css',
     changeDetection: ChangeDetectionStrategy.OnPush
@@ -49,7 +49,7 @@ export class PostsComponent {
     environment = environment;
 
     pageSize = signal(this.storage.getNumber(STORAGE_KEYS.POSTS_PAGE_SIZE) ?? 50);
-    pageSizeOptions: DropdownOption<number>[] = [10, 25, 50, 75, 100].map(size => ({
+    pageSizeOptions: FormSelectOption<number>[] = [10, 25, 50, 75, 100].map(size => ({
         label: `${size} per page`,
         value: size
     }));

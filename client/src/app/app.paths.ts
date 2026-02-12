@@ -6,6 +6,8 @@ export const AppPaths = {
     upload: 'upload',
     bulkTagging: 'bulk-tagging',
     libraries: 'libraries',
+    tags: 'tags',
+    tagCategories: 'tag-categories',
     info: 'info',
     settings: {
         root: 'settings',
@@ -24,6 +26,8 @@ export const AppLinks = {
     upload: () => ['/', AppPaths.upload],
     bulkTagging: () => ['/', AppPaths.bulkTagging],
     libraries: () => ['/', AppPaths.libraries],
+    tags: () => ['/', AppPaths.tags],
+    tagCategories: () => ['/', AppPaths.tags, 'categories'],
     info: () => ['/', AppPaths.info],
     settings: () => ['/', AppPaths.settings.root],
     settingsAutoTagging: () => ['/', AppPaths.settings.root, AppPaths.settings.autoTagging],

@@ -2,6 +2,7 @@ using Bakabooru.Core.Config;
 using Bakabooru.Core.Interfaces;
 using Bakabooru.Data;
 using Bakabooru.Processing;
+using Bakabooru.Server.Infrastructure;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Authorization;
@@ -36,7 +37,7 @@ if (authEnabled)
                 OnRedirectToLogin = context =>
                 {
                     if (context.Request.Path.StartsWithSegments("/api")
-                        || context.Request.Path.StartsWithSegments("/thumbnails"))
+                        || context.Request.Path.StartsWithSegments(MediaPaths.ThumbnailsRequestPath))
                     {
                         context.Response.StatusCode = StatusCodes.Status401Unauthorized;
                         return Task.CompletedTask;
@@ -48,7 +49,7 @@ if (authEnabled)
                 OnRedirectToAccessDenied = context =>
                 {
                     if (context.Request.Path.StartsWithSegments("/api")
-                        || context.Request.Path.StartsWithSegments("/thumbnails"))
+                        || context.Request.Path.StartsWithSegments(MediaPaths.ThumbnailsRequestPath))
                     {
                         context.Response.StatusCode = StatusCodes.Status403Forbidden;
                         return Task.CompletedTask;
@@ -154,7 +155,7 @@ if (app.Environment.IsDevelopment())
 {
     app.Use(async (context, next) =>
     {
-        if (context.Request.Path.StartsWithSegments("/thumbnails"))
+        if (context.Request.Path.StartsWithSegments(MediaPaths.ThumbnailsRequestPath))
         {
             await next();
             if (context.Response.StatusCode == 404)
@@ -176,7 +177,7 @@ if (authEnabled)
 {
     app.Use(async (context, next) =>
     {
-        if (context.Request.Path.StartsWithSegments("/thumbnails")
+        if (context.Request.Path.StartsWithSegments(MediaPaths.ThumbnailsRequestPath)
             && !(context.User.Identity?.IsAuthenticated ?? false))
         {
             await context.ChallengeAsync();
@@ -190,7 +191,7 @@ if (authEnabled)
 app.UseStaticFiles(new StaticFileOptions
 {
     FileProvider = new Microsoft.Extensions.FileProviders.PhysicalFileProvider(thumbnailPath),
-    RequestPath = "/thumbnails"
+    RequestPath = MediaPaths.ThumbnailsRequestPath
 });
 
 app.UseAuthorization();

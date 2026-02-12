@@ -21,11 +21,11 @@ public class AdminController : ControllerBase
     }
 
     [HttpPost("jobs/scan-all")]
-    public async Task<IActionResult> ScanAll(CancellationToken cancellationToken)
+    public async Task<IActionResult> ScanAll()
     {
         try
         {
-            var jobId = await _jobService.StartJobAsync("Scan All Libraries", cancellationToken);
+            var jobId = await _jobService.StartJobAsync("Scan All Libraries", CancellationToken.None);
             return Accepted(new { JobId = jobId });
         }
         catch (ArgumentException ex)

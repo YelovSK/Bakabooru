@@ -1,9 +1,12 @@
 using Bakabooru.Core;
+using Bakabooru.Core.Config;
 using Bakabooru.Core.Interfaces;
 using Bakabooru.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
+using System.Collections.Concurrent;
 
 namespace Bakabooru.Processing.Jobs;
 
@@ -11,11 +14,16 @@ public class ExtractMetadataJob : IJob
 {
     private readonly IServiceScopeFactory _scopeFactory;
     private readonly ILogger<ExtractMetadataJob> _logger;
+    private readonly int _parallelism;
 
-    public ExtractMetadataJob(IServiceScopeFactory scopeFactory, ILogger<ExtractMetadataJob> logger)
+    public ExtractMetadataJob(
+        IServiceScopeFactory scopeFactory,
+        ILogger<ExtractMetadataJob> logger,
+        IOptions<BakabooruConfig> config)
     {
         _scopeFactory = scopeFactory;
         _logger = logger;
+        _parallelism = Math.Max(1, config.Value.Processing.MetadataParallelism);
     }
 
     public string Name => "Extract Metadata";
@@ -55,31 +63,45 @@ public class ExtractMetadataJob : IJob
         for (int i = 0; i < posts.Count; i += batchSize)
         {
             var batch = posts.Skip(i).Take(batchSize).ToList();
+            var results = new ConcurrentBag<(int PostId, int Width, int Height, string ContentType)>();
 
-            foreach (var post in batch)
-            {
-                context.CancellationToken.ThrowIfCancellationRequested();
-                try
+            await Parallel.ForEachAsync(
+                batch,
+                new ParallelOptions
                 {
-                    var fullPath = Path.Combine(post.LibraryPath, post.RelativePath);
-                    var metadata = await imageProcessor.GetMetadataAsync(fullPath, context.CancellationToken);
-                    var contentType = SupportedMedia.GetMimeType(Path.GetExtension(post.RelativePath));
-
-                    // Update the tracked entity
-                    var entity = await db.Posts.FindAsync(new object[] { post.Id }, context.CancellationToken);
-                    if (entity != null)
+                    MaxDegreeOfParallelism = _parallelism,
+                    CancellationToken = context.CancellationToken
+                },
+                async (post, ct) =>
+                {
+                    try
                     {
-                        entity.Width = metadata.Width;
-                        entity.Height = metadata.Height;
-                        entity.ContentType = contentType;
-                    }
+                        var fullPath = Path.Combine(post.LibraryPath, post.RelativePath);
+                        var metadata = await imageProcessor.GetMetadataAsync(fullPath, ct);
+                        var contentType = SupportedMedia.GetMimeType(Path.GetExtension(post.RelativePath));
 
-                    processed++;
-                }
-                catch (Exception ex)
+                        results.Add((post.Id, metadata.Width, metadata.Height, contentType));
+                        Interlocked.Increment(ref processed);
+                    }
+                    catch (Exception ex)
+                    {
+                        Interlocked.Increment(ref failed);
+                        _logger.LogWarning(ex, "Failed to extract metadata for post {Id}: {Path}", post.Id, post.RelativePath);
+                    }
+                });
+
+            var entityIds = batch.Select(p => p.Id).ToList();
+            var entities = await db.Posts
+                .Where(p => entityIds.Contains(p.Id))
+                .ToDictionaryAsync(p => p.Id, context.CancellationToken);
+
+            foreach (var result in results)
+            {
+                if (entities.TryGetValue(result.PostId, out var entity))
                 {
-                    failed++;
-                    _logger.LogWarning(ex, "Failed to extract metadata for post {Id}: {Path}", post.Id, post.RelativePath);
+                    entity.Width = result.Width;
+                    entity.Height = result.Height;
+                    entity.ContentType = result.ContentType;
                 }
             }
 

@@ -1,0 +1,211 @@
+<div class="mx-auto max-w-6xl">
+  <h1 class="mb-2 text-2xl font-bold text-text-primary">Tag Management</h1>
+  <p class="mb-6 text-text-muted">Manage tags and tag categories in one place.</p>
+
+  <app-tabs>
+    <app-tab id="tags" label="Tags">
+      <ng-template>
+        <section class="glass-card p-4">
+          <div class="mb-4 flex flex-wrap items-center gap-3">
+            <div class="min-w-[280px] grow">
+              <app-search-input
+                placeholder="Search tags..."
+                [value]="tagsQuery()"
+                (search)="onTagsSearch($event)">
+              </app-search-input>
+            </div>
+            <app-button (click)="openCreateTagModal()">New Tag</app-button>
+          </div>
+
+          @if (tagsLoading()) {
+            <div class="py-6 text-sm text-text-muted">Loading tags...</div>
+          } @else {
+            <div class="mb-3 text-sm text-text-muted">Showing {{ tags().length }} of {{ tagsTotal() }} tags</div>
+            <app-data-table
+              [columns]="tagColumns"
+              [rows]="tags()"
+              [trackBy]="trackTagRow"
+              (rowClick)="openEditTagModal($event)">
+            </app-data-table>
+
+            <div class="mt-4 flex justify-center">
+              <app-paginator
+                [currentPage]="tagsPage()"
+                [totalPages]="tagsTotalPages()"
+                (pageChange)="onTagsPageChange($event)">
+              </app-paginator>
+            </div>
+          }
+        </section>
+      </ng-template>
+    </app-tab>
+
+    <app-tab id="categories" label="Categories">
+      <ng-template>
+        <section class="glass-card p-4">
+          <div class="mb-4 flex flex-wrap items-center gap-3">
+            <div class="min-w-[280px] grow">
+              <app-search-input
+                placeholder="Search categories..."
+                [value]="categoriesQuery()"
+                (search)="onCategoriesSearch($event)">
+              </app-search-input>
+            </div>
+            <app-button (click)="openCreateCategoryModal()">New Category</app-button>
+          </div>
+
+          @if (categoriesLoading()) {
+            <div class="py-6 text-sm text-text-muted">Loading categories...</div>
+          } @else {
+            <div class="mb-3 text-sm text-text-muted">
+              Showing {{ pagedCategories().length }} of {{ filteredCategories().length }} categories
+            </div>
+            <app-data-table
+              [columns]="categoryColumns"
+              [rows]="pagedCategories()"
+              [trackBy]="trackCategoryRow"
+              (rowClick)="openEditCategoryModal($event)">
+            </app-data-table>
+
+            <div class="mt-4 flex justify-center">
+              <app-paginator
+                [currentPage]="categoriesPage()"
+                [totalPages]="categoriesTotalPages()"
+                (pageChange)="onCategoriesPageChange($event)">
+              </app-paginator>
+            </div>
+          }
+        </section>
+      </ng-template>
+    </app-tab>
+  </app-tabs>
+</div>
+
+<app-modal [open]="createTagOpen()" title="Create Tag" (closed)="closeCreateTagModal()">
+  <div class="grid grid-cols-1 gap-3">
+    <label class="text-sm text-text-muted">Name</label>
+    <input
+      type="text"
+      [ngModel]="createTagName()"
+      (ngModelChange)="createTagName.set($event)"
+      class="rounded-lg border border-glass-border bg-glass-bg px-3 py-2 text-sm text-text-primary outline-none focus:border-accent-primary/60" />
+
+    <label class="text-sm text-text-muted">Category</label>
+    <app-form-select
+      [value]="createTagCategoryId()"
+      [options]="categorySelectOptions()"
+      placeholder="Uncategorized"
+      (valueChange)="createTagCategoryId.set($event)">
+    </app-form-select>
+  </div>
+
+  <div class="mt-4 flex justify-end gap-2">
+    <app-button variant="ghost" (click)="closeCreateTagModal()">Cancel</app-button>
+    <app-button (click)="createTag()">Create</app-button>
+  </div>
+</app-modal>
+
+@if (editTag(); as model) {
+  <app-modal [open]="true" title="Edit Tag" (closed)="closeEditTagModal()">
+    <div class="grid grid-cols-1 gap-3">
+      <label class="text-sm text-text-muted">Name</label>
+      <input
+        type="text"
+        [ngModel]="model.name"
+        (ngModelChange)="updateEditTag({ name: $event })"
+        class="rounded-lg border border-glass-border bg-glass-bg px-3 py-2 text-sm text-text-primary outline-none focus:border-accent-primary/60" />
+
+      <label class="text-sm text-text-muted">Category</label>
+      <app-form-select
+        [value]="model.categoryId"
+        [options]="categorySelectOptions()"
+        placeholder="Uncategorized"
+        (valueChange)="updateEditTag({ categoryId: $event })">
+      </app-form-select>
+
+      <label class="text-sm text-text-muted">Merge Into</label>
+      <div class="flex gap-2">
+        <input
+          type="text"
+          [ngModel]="model.mergeTargetName"
+          (ngModelChange)="updateEditTag({ mergeTargetName: $event })"
+          placeholder="Target tag name"
+          class="grow rounded-lg border border-glass-border bg-glass-bg px-3 py-2 text-sm text-text-primary outline-none focus:border-accent-primary/60" />
+        <app-button variant="warning" (click)="mergeTag()">Merge</app-button>
+      </div>
+    </div>
+
+    <div class="mt-4 flex justify-between gap-2">
+      <app-button variant="danger" (click)="deleteTagFromEdit()">Delete</app-button>
+      <div class="flex gap-2">
+        <app-button variant="ghost" (click)="closeEditTagModal()">Cancel</app-button>
+        <app-button variant="secondary" (click)="saveTag()">Save</app-button>
+      </div>
+    </div>
+  </app-modal>
+}
+
+<app-modal [open]="createCategoryOpen()" title="Create Category" (closed)="closeCreateCategoryModal()">
+  <div class="grid grid-cols-1 gap-3">
+    <label class="text-sm text-text-muted">Name</label>
+    <input
+      type="text"
+      [ngModel]="createCategoryName()"
+      (ngModelChange)="createCategoryName.set($event)"
+      class="rounded-lg border border-glass-border bg-glass-bg px-3 py-2 text-sm text-text-primary outline-none focus:border-accent-primary/60" />
+
+    <label class="text-sm text-text-muted">Color</label>
+    <input
+      type="color"
+      [ngModel]="createCategoryColor()"
+      (ngModelChange)="createCategoryColor.set($event)"
+      class="h-10 w-20 rounded border border-glass-border bg-glass-bg" />
+
+    <label class="text-sm text-text-muted">Order</label>
+    <input
+      type="number"
+      [ngModel]="createCategoryOrder()"
+      (ngModelChange)="createCategoryOrder.set(+$event)"
+      class="rounded-lg border border-glass-border bg-glass-bg px-3 py-2 text-sm text-text-primary outline-none focus:border-accent-primary/60" />
+  </div>
+
+  <div class="mt-4 flex justify-end gap-2">
+    <app-button variant="ghost" (click)="closeCreateCategoryModal()">Cancel</app-button>
+    <app-button (click)="createCategory()">Create</app-button>
+  </div>
+</app-modal>
+
+@if (editCategory(); as model) {
+  <app-modal [open]="true" title="Edit Category" (closed)="closeEditCategoryModal()">
+    <div class="grid grid-cols-1 gap-3">
+      <label class="text-sm text-text-muted">Name</label>
+      <input
+        type="text"
+        [ngModel]="model.name"
+        (ngModelChange)="updateEditCategory({ name: $event })"
+        class="rounded-lg border border-glass-border bg-glass-bg px-3 py-2 text-sm text-text-primary outline-none focus:border-accent-primary/60" />
+
+      <label class="text-sm text-text-muted">Color</label>
+      <input
+        type="color"
+        [ngModel]="model.color"
+        (ngModelChange)="updateEditCategory({ color: $event })"
+        class="h-10 w-20 rounded border border-glass-border bg-glass-bg" />
+
+      <label class="text-sm text-text-muted">Order</label>
+      <input
+        type="number"
+        [ngModel]="model.order"
+        (ngModelChange)="updateEditCategory({ order: +$event })"
+        class="rounded-lg border border-glass-border bg-glass-bg px-3 py-2 text-sm text-text-primary outline-none focus:border-accent-primary/60" />
+    </div>
+
+    <div class="mt-4 flex justify-between gap-2">
+      <app-button variant="danger" (click)="deleteCategoryFromEdit()">Delete</app-button>
+      <div class="flex gap-2">
+        <app-button variant="ghost" (click)="closeEditCategoryModal()">Cancel</app-button>
+        <app-button variant="secondary" (click)="saveCategory()">Save</app-button>
+      </div>
+    </div>
+  </app-modal>
+}
