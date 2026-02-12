@@ -128,8 +128,8 @@ export class BakabooruService {
             safety: 'safe',
             source: '',
             type: this.getTypeFromContentType(dto.contentType),
-            checksum: dto.md5Hash,
-            checksumMD5: dto.md5Hash,
+            checksum: dto.contentHash,
+            contentHash: dto.contentHash,
             fileSize: 0, // Not provided by DTO yet
             canvasWidth: dto.width,
             canvasHeight: dto.height,

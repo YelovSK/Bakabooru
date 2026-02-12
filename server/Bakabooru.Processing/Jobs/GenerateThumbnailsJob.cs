@@ -1,10 +1,12 @@
 using Bakabooru.Core;
+using Bakabooru.Core.Config;
 using Bakabooru.Core.Interfaces;
 using Bakabooru.Data;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 
 namespace Bakabooru.Processing.Jobs;
 
@@ -14,11 +16,18 @@ public class GenerateThumbnailsJob : IJob
     private readonly ILogger<GenerateThumbnailsJob> _logger;
     private readonly string _thumbnailPath;
 
-    public GenerateThumbnailsJob(IServiceScopeFactory scopeFactory, ILogger<GenerateThumbnailsJob> logger, IConfiguration config)
+    public GenerateThumbnailsJob(
+        IServiceScopeFactory scopeFactory,
+        ILogger<GenerateThumbnailsJob> logger,
+        IOptions<BakabooruConfig> options,
+        IHostEnvironment hostEnvironment)
     {
         _scopeFactory = scopeFactory;
         _logger = logger;
-        _thumbnailPath = config.GetValue<string>("Bakabooru:Storage:ThumbnailPath") ?? "data/thumbnails";
+        _thumbnailPath = StoragePathResolver.ResolvePath(
+            hostEnvironment.ContentRootPath,
+            options.Value.Storage.ThumbnailPath,
+            "../../data/thumbnails");
 
         if (!Directory.Exists(_thumbnailPath))
             Directory.CreateDirectory(_thumbnailPath);
@@ -37,14 +46,14 @@ public class GenerateThumbnailsJob : IJob
 
         var posts = await db.Posts
             .Include(p => p.Library)
-            .Where(p => !string.IsNullOrEmpty(p.Md5Hash))
-            .Select(p => new { p.Id, p.Md5Hash, p.RelativePath, LibraryPath = p.Library.Path })
+            .Where(p => !string.IsNullOrEmpty(p.ContentHash))
+            .Select(p => new { p.Id, p.ContentHash, p.RelativePath, LibraryPath = p.Library.Path })
             .ToListAsync(context.CancellationToken);
 
         // Filter based on mode
         var toProcess = context.Mode == JobMode.All
             ? posts
-            : posts.Where(p => !File.Exists(Path.Combine(_thumbnailPath, $"{p.Md5Hash}.jpg"))).ToList();
+            : posts.Where(p => !File.Exists(Path.Combine(_thumbnailPath, $"{p.ContentHash}.jpg"))).ToList();
 
         _logger.LogInformation("Generating thumbnails for {Count}/{Total} posts (mode: {Mode})", 
             toProcess.Count, posts.Count, context.Mode);
@@ -60,7 +69,7 @@ public class GenerateThumbnailsJob : IJob
         int failed = 0;
         var parallelOptions = new ParallelOptions
         {
-            MaxDegreeOfParallelism = Environment.ProcessorCount,
+            MaxDegreeOfParallelism = Math.Max(2, Environment.ProcessorCount / 2),
             CancellationToken = context.CancellationToken
         };
 
@@ -69,7 +78,7 @@ public class GenerateThumbnailsJob : IJob
             try
             {
                 var fullPath = Path.Combine(post.LibraryPath, post.RelativePath);
-                var destination = Path.Combine(_thumbnailPath, $"{post.Md5Hash}.jpg");
+                var destination = Path.Combine(_thumbnailPath, $"{post.ContentHash}.jpg");
 
                 if (context.Mode == JobMode.All || !File.Exists(destination))
                 {

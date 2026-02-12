@@ -28,6 +28,13 @@ public class RecursiveScanner : IScannerService
         
         var libraries = await dbContext.Libraries.ToListAsync(cancellationToken);
         _logger.LogInformation("Found {Count} libraries to scan.", libraries.Count);
+
+        if (libraries.Count == 0)
+        {
+            status?.Report("No libraries configured.");
+            progress?.Report(100);
+            return;
+        }
         
         int totalLibraries = libraries.Count;
         int currentLibraryIndex = 0;
@@ -36,8 +43,9 @@ public class RecursiveScanner : IScannerService
         {
             if (cancellationToken.IsCancellationRequested) break;
 
+            var displayName = GetLibraryDisplayName(library.Name, library.Path, library.Id);
             _logger.LogInformation("Starting scan for library {Id}: {Path}", library.Id, library.Path);
-            status?.Report($"Scanning library: {library.Name}");
+            status?.Report($"Scanning library: {displayName}");
             
             // Create a sub-progress that maps 0-100 of this library to a slice of the total progress
             var subProgress = new Progress<float>(percent => 
@@ -68,11 +76,24 @@ public class RecursiveScanner : IScannerService
             return;
         }
 
+        var displayName = GetLibraryDisplayName(library.Name, library.Path, library.Id);
         _logger.LogInformation("Scanning library: {Path}", library.Path);
-        status?.Report($"Scanning library: {library.Name}");
+        status?.Report($"Scanning library: {displayName}");
         await _mediaProcessor.ProcessDirectoryAsync(library, library.Path, progress, status, cancellationToken);
         progress?.Report(100);
-        status?.Report($"Completed scan for: {library.Name}");
+        status?.Report($"Completed scan for: {displayName}");
         _logger.LogInformation("Finished scanning library: {Path}", library.Path);
+    }
+
+    private static string GetLibraryDisplayName(string? name, string path, int id)
+    {
+        if (!string.IsNullOrWhiteSpace(name))
+            return name;
+
+        var folder = Path.GetFileName(Path.TrimEndingDirectorySeparator(path));
+        if (!string.IsNullOrWhiteSpace(folder))
+            return folder;
+
+        return $"Library #{id}";
     }
 }

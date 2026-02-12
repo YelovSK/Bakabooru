@@ -1,8 +1,12 @@
+using Bakabooru.Core.Config;
 using Bakabooru.Data;
 using Bakabooru.Processing;
 using Microsoft.EntityFrameworkCore;
 
 var builder = WebApplication.CreateBuilder(args);
+var bakabooruConfig = builder.Configuration.GetSection(BakabooruConfig.SectionName).Get<BakabooruConfig>() ?? new BakabooruConfig();
+
+builder.Services.Configure<BakabooruConfig>(builder.Configuration.GetSection(BakabooruConfig.SectionName));
 
 // Add services to the container.
 builder.Services.AddControllers();
@@ -23,14 +27,26 @@ builder.Services.AddCors(options =>
 });
 
 // Database
+var resolvedConnectionString = StoragePathResolver.ResolveSqliteConnectionString(
+    builder.Environment.ContentRootPath,
+    builder.Configuration.GetConnectionString("DefaultConnection"),
+    bakabooruConfig.Storage.DatabasePath);
+
 builder.Services.AddDbContext<BakabooruDbContext>(options =>
-    options.UseSqlite(builder.Configuration.GetConnectionString("DefaultConnection")));
+    options.UseSqlite(resolvedConnectionString));
 
 
 // Modular Processing Pipeline
-builder.Services.AddBakabooruProcessing();
+builder.Services.AddBakabooruProcessing(bakabooruConfig);
 
 var app = builder.Build();
+
+// Auto-apply pending migrations on startup
+using (var scope = app.Services.CreateScope())
+{
+    var db = scope.ServiceProvider.GetRequiredService<BakabooruDbContext>();
+    db.Database.Migrate();
+}
 
 // Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())
@@ -41,7 +57,10 @@ if (app.Environment.IsDevelopment())
 
 app.UseCors("AllowAngular");
 
-var thumbnailPath = Path.GetFullPath(builder.Configuration["Bakabooru:Storage:ThumbnailPath"] ?? "thumbnails");
+var thumbnailPath = StoragePathResolver.ResolvePath(
+    builder.Environment.ContentRootPath,
+    bakabooruConfig.Storage.ThumbnailPath,
+    "../../data/thumbnails");
 if (!Directory.Exists(thumbnailPath))
 {
     Directory.CreateDirectory(thumbnailPath);
@@ -58,7 +77,7 @@ if (app.Environment.IsDevelopment())
             await next();
             if (context.Response.StatusCode == 404)
             {
-                var requestedFile = Path.GetFileName(context.Request.Path.Value);
+                var requestedFile = Path.GetFileName(context.Request.Path.Value ?? string.Empty);
                 var filePath = Path.Combine(thumbnailPath, requestedFile);
                 var exists = File.Exists(filePath);
                 app.Logger.LogWarning("Thumbnail 404: {Url} (File exists at {Path}: {Exists})", context.Request.Path, filePath, exists);

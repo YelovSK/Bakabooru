@@ -5,7 +5,7 @@ public class PostDto
     public int Id { get; set; }
     public int LibraryId { get; set; }
     public string RelativePath { get; set; } = string.Empty;
-    public string Md5Hash { get; set; } = string.Empty;
+    public string ContentHash { get; set; } = string.Empty;
     public int Width { get; set; }
     public int Height { get; set; }
     public string ContentType { get; set; } = string.Empty;

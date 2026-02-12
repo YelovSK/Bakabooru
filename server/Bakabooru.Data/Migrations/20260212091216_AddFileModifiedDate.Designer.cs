@@ -3,6 +3,7 @@ using System;
 using Bakabooru.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -10,9 +11,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace Bakabooru.Data.Migrations
 {
     [DbContext(typeof(BakabooruDbContext))]
-    partial class BakabooruDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260212091216_AddFileModifiedDate")]
+    partial class AddFileModifiedDate
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder.HasAnnotation("ProductVersion", "10.0.2");
@@ -70,14 +73,14 @@ namespace Bakabooru.Data.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("INTEGER");
 
-                    b.Property<string>("ContentHash")
-                        .HasColumnType("TEXT");
-
                     b.Property<DateTime>("ExcludedDate")
                         .HasColumnType("TEXT");
 
                     b.Property<int>("LibraryId")
                         .HasColumnType("INTEGER");
+
+                    b.Property<string>("Md5Hash")
+                        .HasColumnType("TEXT");
 
                     b.Property<string>("Reason")
                         .IsRequired()
@@ -157,11 +160,6 @@ namespace Bakabooru.Data.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("INTEGER");
 
-                    b.Property<string>("ContentHash")
-                        .IsRequired()
-                        .HasMaxLength(64)
-                        .HasColumnType("TEXT");
-
                     b.Property<string>("ContentType")
                         .IsRequired()
                         .HasMaxLength(100)
@@ -179,6 +177,11 @@ namespace Bakabooru.Data.Migrations
                     b.Property<int>("LibraryId")
                         .HasColumnType("INTEGER");
 
+                    b.Property<string>("Md5Hash")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("TEXT");
+
                     b.Property<ulong?>("PerceptualHash")
                         .HasColumnType("INTEGER");
 
@@ -195,7 +198,7 @@ namespace Bakabooru.Data.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("ContentHash");
+                    b.HasIndex("Md5Hash");
 
                     b.HasIndex("LibraryId", "RelativePath");
 

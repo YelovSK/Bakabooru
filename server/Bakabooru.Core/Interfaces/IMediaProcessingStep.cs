@@ -22,7 +22,7 @@ public class MediaProcessingContext
     public Library Library { get; set; } = null!;
 
     // Results populated by steps
-    public string? Md5Hash { get; set; }
+    public string? ContentHash { get; set; }
     public ulong? PerceptualHash { get; set; }
     public int Width { get; set; }
     public int Height { get; set; }

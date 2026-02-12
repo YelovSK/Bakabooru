@@ -63,7 +63,8 @@ public class FileSystemMediaSource : IMediaSource
                 {
                     FullPath = filePath,
                     RelativePath = Path.GetRelativePath(sourcePath, filePath),
-                    SizeBytes = fi.Length
+                    SizeBytes = fi.Length,
+                    LastModifiedUtc = fi.LastWriteTimeUtc
                 };
             }
         }

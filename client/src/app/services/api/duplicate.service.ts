@@ -7,7 +7,7 @@ export interface DuplicatePost {
     id: number;
     libraryId: number;
     relativePath: string;
-    md5Hash: string;
+    contentHash: string;
     width: number;
     height: number;
     contentType: string;

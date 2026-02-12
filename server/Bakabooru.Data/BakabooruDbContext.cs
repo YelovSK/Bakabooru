@@ -70,7 +70,7 @@ public class BakabooruDbContext : DbContext
 
         // Indexes for performance
         modelBuilder.Entity<Post>()
-            .HasIndex(p => p.Md5Hash);
+            .HasIndex(p => p.ContentHash);
 
         modelBuilder.Entity<Post>()
             .HasIndex(p => new { p.LibraryId, p.RelativePath });

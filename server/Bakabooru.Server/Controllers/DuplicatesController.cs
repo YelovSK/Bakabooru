@@ -41,13 +41,13 @@ public class DuplicatesController : ControllerBase
                 e.Post.Id,
                 e.Post.LibraryId,
                 e.Post.RelativePath,
-                e.Post.Md5Hash,
+                ContentHash = e.Post.ContentHash,
                 e.Post.Width,
                 e.Post.Height,
                 e.Post.ContentType,
                 e.Post.SizeBytes,
                 e.Post.ImportDate,
-                ThumbnailUrl = $"/thumbnails/{e.Post.Md5Hash}.jpg",
+                ThumbnailUrl = $"/thumbnails/{e.Post.ContentHash}.jpg",
                 ContentUrl = $"/api/posts/{e.Post.Id}/content"
             })
         });
@@ -93,7 +93,7 @@ public class DuplicatesController : ControllerBase
     }
 
     /// <summary>
-    /// Bulk-resolve all exact (MD5) duplicate groups by keeping the oldest post in each.
+    /// Bulk-resolve all exact (content-hash) duplicate groups by keeping the oldest post in each.
     /// </summary>
     [HttpPost("resolve-all-exact")]
     public async Task<ActionResult> ResolveAllExact(CancellationToken cancellationToken)
@@ -140,7 +140,7 @@ public class DuplicatesController : ControllerBase
                 {
                     LibraryId = post.LibraryId,
                     RelativePath = post.RelativePath,
-                    Md5Hash = post.Md5Hash,
+                    ContentHash = post.ContentHash,
                     ExcludedDate = DateTime.UtcNow,
                     Reason = "duplicate_resolution"
                 });

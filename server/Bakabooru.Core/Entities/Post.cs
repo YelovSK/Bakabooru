@@ -14,7 +14,7 @@ public class Post
     public string RelativePath { get; set; } = string.Empty;
     
     [MaxLength(64)]
-    public string Md5Hash { get; set; } = string.Empty;
+    public string ContentHash { get; set; } = string.Empty;
     
     public ulong? PerceptualHash { get; set; }
     
@@ -26,6 +26,9 @@ public class Post
     public string ContentType { get; set; } = string.Empty;
     
     public DateTime ImportDate { get; set; }
+
+    /// <summary>File's last modified time at time of scan, for change detection.</summary>
+    public DateTime? FileModifiedDate { get; set; }
     
     public ICollection<PostTag> PostTags { get; set; } = new List<PostTag>();
 }

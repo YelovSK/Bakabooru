@@ -1,3 +1,4 @@
+using Bakabooru.Core.Config;
 using Bakabooru.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Design;
@@ -9,17 +10,23 @@ public class BakabooruDbContextFactory : IDesignTimeDbContextFactory<BakabooruDb
 {
     public BakabooruDbContext CreateDbContext(string[] args)
     {
-        // Build configuration
+        var contentRoot = AppContext.BaseDirectory;
+
         IConfigurationRoot configuration = new ConfigurationBuilder()
-            .SetBasePath(Directory.GetCurrentDirectory())
+            .SetBasePath(contentRoot)
             .AddJsonFile("appsettings.json")
+            .AddJsonFile("appsettings.Development.json", optional: true)
             .Build();
 
-        // Create options
+        var bakabooruConfig = configuration.GetSection(BakabooruConfig.SectionName).Get<BakabooruConfig>() ?? new BakabooruConfig();
+
+        var resolvedConnectionString = StoragePathResolver.ResolveSqliteConnectionString(
+            contentRoot,
+            configuration.GetConnectionString("DefaultConnection"),
+            bakabooruConfig.Storage.DatabasePath);
+
         var builder = new DbContextOptionsBuilder<BakabooruDbContext>();
-        var connectionString = configuration.GetConnectionString("DefaultConnection");
-        
-        builder.UseSqlite(connectionString);
+        builder.UseSqlite(resolvedConnectionString);
 
         return new BakabooruDbContext(builder.Options);
     }

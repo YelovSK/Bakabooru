@@ -6,6 +6,7 @@ public class BakabooruConfig
 
     public StorageConfig Storage { get; set; } = new();
     public ScannerConfig Scanner { get; set; } = new();
+    public ProcessingConfig Processing { get; set; } = new();
 }
 
 public class StorageConfig
@@ -33,4 +34,10 @@ public class ScannerConfig
 {
     public bool SkipVideoHashing { get; set; } = true;
     public int BatchSize { get; set; } = 100;
+    public int Parallelism { get; set; } = 2;
+}
+
+public class ProcessingConfig
+{
+    public bool RunScheduler { get; set; } = true;
 }

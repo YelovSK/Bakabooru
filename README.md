@@ -1,55 +1,68 @@
 # Bakabooru
 
-A self-hosted booru image board application.
+Self-hosted booru monorepo (ASP.NET Core backend + Angular client).
 
-## Project Structure
+## Current State Snapshot
+- Backend is usable for library scanning, post browsing, job orchestration, and duplicate workflows.
+- Client is present and actively used, but still carries Oxibooru compatibility shims and multiple stubbed API paths.
+- Large parts of the product are still work in progress.
 
-This repository is organized as a monorepo:
+## Monorepo Structure
+- `server/` - .NET 10 backend solution (`Bakabooru.Server`, `Bakabooru.Processing`, `Bakabooru.Data`, `Bakabooru.Core`).
+- `client/` - Angular client adapted from an Oxibooru-oriented codebase.
+- `data/` - runtime storage location (thumbnails/temp/db depending on your config).
 
-- **`server/`**: The backend implementation (ASP.NET Core 10).
-  - Handles API, Database, and File System Scanning.
-  - See [server/README.md](server/README.md) for setup and architecture details.
+## Prerequisites
+- .NET 10 SDK
+- Node.js 22+ and npm
+- FFmpeg + FFprobe available on `PATH` (required for thumbnailing, metadata, and perceptual hashing)
 
-- **`client/`**: The frontend implementation (Angular) - *Planned/Pending*.
+## Quick Start (Windows)
+From repository root:
 
-## Quick Start
-To launch the entire development environment (API, Scanner, and Client) at once on Windows, run one of the provided scripts from the root:
-
-**Using PowerShell:**
+**PowerShell**
 ```powershell
 .\DevStart.ps1
 ```
 
-**Using Command Prompt:**
+**Command Prompt**
 ```cmd
 DevStart.bat
 ```
 
-### Manual Start (Backend)
-1. Navigate to the server folder:
-   ```bash
-   cd server
-   ```
-2. Run database migration (if needed):
-   ```bash
-   dotnet ef database update --project Bakabooru.Data --startup-project Bakabooru.Server
-   ```
-3. Start the API:
-   ```bash
-   dotnet run --project Bakabooru.Server
-   ```
+This launches API and client in separate windows.
 
-### Manual Start (Frontend)
-1. Navigate to the client folder:
-   ```bash
-   cd client
-   ```
-2. Run:
-   ```bash
-   npm install
-   npm start
-   ```
+## Manual Start
+### Backend API
+```bash
+cd server
+dotnet run --project Bakabooru.Server
+```
 
-For detailed documentation, refer to the files in the `server/` directory:
-- [Architecture](server/ARCHITECTURE.md)
-- [Setup Guide](server/SETUP.md)
+### Frontend
+```bash
+cd client
+npm install
+npm start
+```
+
+### Optional Manual Migration Command
+`Bakabooru.Server` auto-applies pending migrations on startup. If you want to run EF manually:
+
+```bash
+cd server
+dotnet ef database update --project Bakabooru.Data --startup-project Bakabooru.Server
+```
+
+## Process Roles and Scheduler Caveat
+- `Bakabooru.Server` hosts HTTP controllers and background services from `Bakabooru.Processing`.
+- Scheduler execution is controlled via `Bakabooru:Processing:RunScheduler`.
+
+For predictable local behavior, run API + client as the default setup.
+
+## Documentation
+- Server overview: [server/README.md](server/README.md)
+- Server setup: [server/SETUP.md](server/SETUP.md)
+- Server architecture: [server/ARCHITECTURE.md](server/ARCHITECTURE.md)
+- Client overview: [client/README.md](client/README.md)
+- Known gaps/backlog: [TODO.md](TODO.md)

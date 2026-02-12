@@ -1,6 +1,8 @@
+using Bakabooru.Core.Config;
 using Bakabooru.Core.Interfaces;
 using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Options;
 
 namespace Bakabooru.Processing.Steps;
 
@@ -12,11 +14,18 @@ public class ThumbnailStep : IMediaProcessingStep
 
     public int Order => 30;
 
-    public ThumbnailStep(IImageProcessor mediaProcessor, ILogger<ThumbnailStep> logger, IConfiguration config)
+    public ThumbnailStep(
+        IImageProcessor mediaProcessor,
+        ILogger<ThumbnailStep> logger,
+        IOptions<BakabooruConfig> options,
+        IHostEnvironment hostEnvironment)
     {
         _mediaProcessor = mediaProcessor;
         _logger = logger;
-        _thumbnailPath = config.GetValue<string>("Bakabooru:Storage:ThumbnailPath") ?? "data/thumbnails";
+        _thumbnailPath = StoragePathResolver.ResolvePath(
+            hostEnvironment.ContentRootPath,
+            options.Value.Storage.ThumbnailPath,
+            "../../data/thumbnails");
         
         if (!Directory.Exists(_thumbnailPath))
         {
@@ -26,9 +35,9 @@ public class ThumbnailStep : IMediaProcessingStep
 
     public async Task ExecuteAsync(MediaProcessingContext context, CancellationToken cancellationToken)
     {
-        if (string.IsNullOrEmpty(context.Md5Hash)) return;
+        if (string.IsNullOrEmpty(context.ContentHash)) return;
 
-        var destination = Path.Combine(_thumbnailPath, $"{context.Md5Hash}.jpg");
+        var destination = Path.Combine(_thumbnailPath, $"{context.ContentHash}.jpg");
         if (!File.Exists(destination))
         {
             _logger.LogInformation("Generating thumbnail: {Path}", context.RelativePath);

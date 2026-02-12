@@ -24,6 +24,7 @@ public class LibrariesController : ControllerBase
         return libraries.Select(l => new LibraryDto
         {
             Id = l.Id,
+            Name = l.Name,
             Path = l.Path,
             ScanIntervalHours = l.ScanInterval.TotalHours
         }).ToList();
@@ -42,6 +43,7 @@ public class LibrariesController : ControllerBase
         return new LibraryDto
         {
             Id = library.Id,
+            Name = library.Name,
             Path = library.Path,
             ScanIntervalHours = library.ScanInterval.TotalHours
         };
@@ -57,6 +59,9 @@ public class LibrariesController : ControllerBase
 
         var library = new Library
         {
+            Name = string.IsNullOrWhiteSpace(dto.Name)
+                ? Path.GetFileName(Path.TrimEndingDirectorySeparator(dto.Path))
+                : dto.Name.Trim(),
             Path = dto.Path,
             ScanInterval = TimeSpan.FromHours(1) // Default
         };
@@ -67,6 +72,7 @@ public class LibrariesController : ControllerBase
         return CreatedAtAction(nameof(GetLibrary), new { id = library.Id }, new LibraryDto
         {
             Id = library.Id,
+            Name = library.Name,
             Path = library.Path,
             ScanIntervalHours = library.ScanInterval.TotalHours
         });

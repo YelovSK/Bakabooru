@@ -26,7 +26,7 @@ public class FindDuplicatesJob : IJob
     }
 
     public string Name => "Find Duplicates";
-    public string Description => "Scans for exact (MD5) and perceptual (dHash) duplicate posts.";
+    public string Description => "Scans for exact (content hash) and perceptual (dHash) duplicate posts.";
 
     public async Task ExecuteAsync(JobContext context)
     {
@@ -36,7 +36,7 @@ public class FindDuplicatesJob : IJob
         context.Status.Report("Loading posts...");
         var posts = await db.Posts
             .AsNoTracking()
-            .Select(p => new { p.Id, p.Md5Hash, p.PerceptualHash })
+            .Select(p => new { p.Id, p.ContentHash, p.PerceptualHash })
             .ToListAsync(context.CancellationToken);
 
         _logger.LogInformation("Loaded {Count} posts for duplicate analysis", posts.Count);
@@ -51,13 +51,13 @@ public class FindDuplicatesJob : IJob
 
         var newGroups = new List<DuplicateGroup>();
 
-        // --- Phase 1: Exact duplicates (same MD5) ---
-        context.Status.Report("Finding exact duplicates (MD5)...");
+        // --- Phase 1: Exact duplicates (same content hash) ---
+        context.Status.Report("Finding exact duplicates (content hash)...");
         context.Progress.Report(10);
 
         var exactGroups = posts
-            .Where(p => !string.IsNullOrEmpty(p.Md5Hash))
-            .GroupBy(p => p.Md5Hash, StringComparer.OrdinalIgnoreCase)
+            .Where(p => !string.IsNullOrEmpty(p.ContentHash))
+            .GroupBy(p => p.ContentHash, StringComparer.OrdinalIgnoreCase)
             .Where(g => g.Count() > 1);
 
         foreach (var group in exactGroups)

@@ -20,7 +20,7 @@ import { environment } from '../../../environments/environment';
         </div>
         <div class="bg-gray-900 border border-gray-700 rounded-lg px-6 py-4 flex-1">
           <div class="text-3xl font-bold text-blue-400">{{ exactCount() }}</div>
-          <div class="text-sm text-gray-400">Exact (MD5)</div>
+          <div class="text-sm text-gray-400">Exact (Content Hash)</div>
         </div>
         <div class="bg-gray-900 border border-gray-700 rounded-lg px-6 py-4 flex-1">
           <div class="text-3xl font-bold text-purple-400">{{ perceptualCount() }}</div>

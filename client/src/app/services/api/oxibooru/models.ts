@@ -13,7 +13,7 @@ export type PostField =
     | 'source'
     | 'type'
     | 'checksum'
-    | 'checksumMD5'
+    | 'contentHash'
     | 'fileSize'
     | 'canvasWidth'
     | 'canvasHeight'
@@ -113,7 +113,7 @@ export interface Post extends MicroPost {
     source: string;
     type: PostType;
     checksum: string;
-    checksumMD5: string;
+    contentHash: string;
     fileSize: number;
     canvasWidth: number;
     canvasHeight: number;

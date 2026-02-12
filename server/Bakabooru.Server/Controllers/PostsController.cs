@@ -60,12 +60,12 @@ public class PostsController : ControllerBase
                 Id = p.Id,
                 LibraryId = p.LibraryId,
                 RelativePath = p.RelativePath,
-                Md5Hash = p.Md5Hash,
+                ContentHash = p.ContentHash,
                 Width = p.Width,
                 Height = p.Height,
                 ContentType = p.ContentType,
                 ImportDate = p.ImportDate,
-                ThumbnailUrl = $"/thumbnails/{p.Md5Hash}.jpg",
+                ThumbnailUrl = $"/thumbnails/{p.ContentHash}.jpg",
                 ContentUrl = $"/api/posts/{p.Id}/content",
                 Tags = p.PostTags.Select(pt => new TagDto
                 {
@@ -103,12 +103,12 @@ public class PostsController : ControllerBase
             Id = p.Id,
             LibraryId = p.LibraryId,
             RelativePath = p.RelativePath,
-            Md5Hash = p.Md5Hash,
+            ContentHash = p.ContentHash,
             Width = p.Width,
             Height = p.Height,
             ContentType = p.ContentType,
             ImportDate = p.ImportDate,
-            ThumbnailUrl = $"/thumbnails/{p.Md5Hash}.jpg",
+            ThumbnailUrl = $"/thumbnails/{p.ContentHash}.jpg",
             ContentUrl = $"/api/posts/{p.Id}/content",
             Tags = p.PostTags.Select(pt => new TagDto
             {

@@ -9,11 +9,11 @@ import { ToastService } from '../../services/toast.service';
 import { ConfirmService } from '../../services/confirm.service';
 
 const JOB_DESCRIPTIONS: Record<string, string> = {
-  'Scan All Libraries': 'Discovers new files and creates post records. Fast — only computes MD5 hashes.',
+  'Scan All Libraries': 'Discovers new files and creates post records. Fast — only computes content hashes.',
   'Generate Thumbnails': 'Creates thumbnail images for posts.',
   'Extract Metadata': 'Reads image dimensions and content type for posts.',
   'Compute Similarity': 'Computes perceptual hashes (dHash) for duplicate detection.',
-  'Find Duplicates': 'Finds exact (MD5) and perceptual (dHash) duplicate post groups.'
+  'Find Duplicates': 'Finds exact (content hash) and perceptual (dHash) duplicate post groups.'
 };
 
 /** Jobs that make sense with Missing/All modes */

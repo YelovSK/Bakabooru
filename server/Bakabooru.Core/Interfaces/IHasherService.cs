@@ -1,11 +1,10 @@
-using System.IO;
-using System.Threading;
-using System.Threading.Tasks;
-
 namespace Bakabooru.Core.Interfaces;
 
 public interface IHasherService
 {
-    Task<string> ComputeMd5Async(string filePath, CancellationToken cancellationToken = default);
-    Task<string> ComputeMd5Async(Stream stream, CancellationToken cancellationToken = default);
+    /// <summary>
+    /// Computes a fast partial file hash using xxHash64 over the first and last 64KB + file size.
+    /// Works identically for images and videos. Very fast on HDDs since it only reads ~128KB.
+    /// </summary>
+    Task<string> ComputeContentHashAsync(string filePath, CancellationToken cancellationToken = default);
 }

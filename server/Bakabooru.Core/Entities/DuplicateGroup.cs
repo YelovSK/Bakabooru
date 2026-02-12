@@ -4,7 +4,7 @@ public class DuplicateGroup
 {
     public int Id { get; set; }
 
-    /// <summary>"exact" (MD5 match) or "perceptual" (dHash similarity)</summary>
+    /// <summary>"exact" (content-hash match) or "perceptual" (dHash similarity)</summary>
     public string Type { get; set; } = string.Empty;
 
     /// <summary>Similarity percentage for perceptual matches (null for exact)</summary>
