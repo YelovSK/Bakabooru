@@ -1,16 +1,18 @@
 # Bakabooru
 
-Bakabooru is a self-hosted booru monorepo with:
-- ASP.NET Core backend (`server/`)
+Bakabooru is a self-hosted booru board.
+
+Most booru boards manage their own file storage, not allowing users to use an existing file folder structure. This board is designed to use external libraries similar to Immich. Additionally, the job system was inspired by Immich as well. That includes scheduled library scanning, thumbnail generation etc.
+
+The functionality is relatively basic compared to most booru boards, as I want to use the board as a single user just to manage my own media collection.
+
+At the moment, the project is half-baked, and will very likely stay like that.
+
+**Note:** This project is NOT intended to be used by anyone else other than me. It is 100% tailored for my own use case, and I have no plans to maintain it, fix issues, or add features. Additionally, it is a personal project that I use to test agentic coding, so the code quality might be questionable, at best. Screaming at LLMs in caps didn't seem to improve the results.
+
+## Tech Stack
+- ASP.NET Core backend (`server/`) + EF Core with SQLite
 - Angular frontend (`client/`)
-
-This README is the main entry point for running locally and deploying with Docker.
-
-## Repository Layout
-- `server/` - .NET backend solution (`Bakabooru.Server`, `Bakabooru.Processing`, `Bakabooru.Data`, `Bakabooru.Core`)
-- `client/` - Angular frontend
-- `docs/` - supporting documentation
-- `docker-compose.example.yml` - example production-ish deployment with prebuilt GHCR images
 
 ## Prerequisites (Local Development)
 - .NET 10 SDK
@@ -94,4 +96,3 @@ Then reference `bakabooru-server` and `bakabooru-client` in your compose file.
 
 ## Documentation
 - Architecture: `docs/architecture.md`
-- Agent notes: `agents/`
