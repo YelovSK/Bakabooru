@@ -71,7 +71,6 @@ public class LibrariesController : ControllerBase
     [HttpPatch("{id}/name")]
     public async Task<IActionResult> RenameLibrary(int id, [FromBody] RenameLibraryDto dto)
     {
-        return await _libraryService.RenameLibraryAsync(id, dto).ToHttpResult();
+        return await _libraryService.RenameLibraryAsync(id, dto).ToHttpResult(_ => NoContent());
     }
 }
-

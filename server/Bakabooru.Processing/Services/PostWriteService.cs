@@ -1,3 +1,4 @@
+using Bakabooru.Core.DTOs;
 using Bakabooru.Core.Entities;
 using Bakabooru.Core.Results;
 using Bakabooru.Data;
@@ -124,6 +125,124 @@ public class PostWriteService
             await _context.SaveChangesAsync();
         }
 
+        return Result.Success();
+    }
+
+    public async Task<Result> UpdateMetadataAsync(int postId, UpdatePostMetadataDto? metadata)
+    {
+        if (metadata == null)
+        {
+            return Result.Failure(OperationError.InvalidInput, "Request body is required");
+        }
+
+        var postExists = await _context.Posts.AnyAsync(p => p.Id == postId);
+        if (!postExists)
+        {
+            return Result.Failure(OperationError.NotFound, "Post not found");
+        }
+
+        var updateTags = metadata.Tags != null;
+        var updateSources = metadata.Sources != null;
+        if (!updateTags && !updateSources)
+        {
+            return Result.Success();
+        }
+
+        if (updateTags)
+        {
+            var desiredTags = metadata.Tags!
+                .Select(t => t?.Trim())
+                .Where(t => !string.IsNullOrWhiteSpace(t))
+                .Select(t => t!)
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToList();
+
+            var desiredTagLookup = desiredTags.ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+            var existingPostTags = await _context.PostTags
+                .Where(pt => pt.PostId == postId)
+                .Include(pt => pt.Tag)
+                .ToListAsync();
+
+            var toRemove = existingPostTags
+                .Where(pt => !desiredTagLookup.Contains(pt.Tag.Name))
+                .ToList();
+            if (toRemove.Count > 0)
+            {
+                _context.PostTags.RemoveRange(toRemove);
+            }
+
+            var existingTagNames = existingPostTags
+                .Select(pt => pt.Tag.Name)
+                .ToHashSet(StringComparer.OrdinalIgnoreCase);
+            var missingTagNames = desiredTags
+                .Where(tag => !existingTagNames.Contains(tag))
+                .ToList();
+
+            if (missingTagNames.Count > 0)
+            {
+                var existingTags = await _context.Tags
+                    .Where(t => missingTagNames.Contains(t.Name))
+                    .ToListAsync();
+                var tagsByName = existingTags
+                    .ToDictionary(t => t.Name, StringComparer.OrdinalIgnoreCase);
+
+                foreach (var tagName in missingTagNames)
+                {
+                    if (!tagsByName.TryGetValue(tagName, out var tag))
+                    {
+                        tag = new Tag { Name = tagName };
+                        _context.Tags.Add(tag);
+                        tagsByName[tagName] = tag;
+                    }
+
+                    _context.PostTags.Add(new PostTag
+                    {
+                        PostId = postId,
+                        Tag = tag
+                    });
+                }
+            }
+        }
+
+        if (updateSources)
+        {
+            var normalizedSources = new List<string>();
+            var seenSources = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            foreach (var source in metadata.Sources!)
+            {
+                var normalized = source?.Trim();
+                if (string.IsNullOrWhiteSpace(normalized))
+                {
+                    continue;
+                }
+
+                if (seenSources.Add(normalized))
+                {
+                    normalizedSources.Add(normalized);
+                }
+            }
+
+            var existingSources = await _context.PostSources
+                .Where(ps => ps.PostId == postId)
+                .ToListAsync();
+            if (existingSources.Count > 0)
+            {
+                _context.PostSources.RemoveRange(existingSources);
+            }
+
+            for (var i = 0; i < normalizedSources.Count; i++)
+            {
+                _context.PostSources.Add(new PostSource
+                {
+                    PostId = postId,
+                    Url = normalizedSources[i],
+                    Order = i
+                });
+            }
+        }
+
+        await _context.SaveChangesAsync();
         return Result.Success();
     }
 }

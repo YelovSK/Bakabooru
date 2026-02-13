@@ -42,6 +42,12 @@ public class PostsController : ControllerBase
         return await _postReadService.GetPostAsync(id, cancellationToken).ToHttpResult();
     }
 
+    [HttpPut("{id}")]
+    public async Task<IActionResult> UpdatePostMetadata(int id, [FromBody] UpdatePostMetadataDto dto)
+    {
+        return await _postWriteService.UpdateMetadataAsync(id, dto).ToHttpResult();
+    }
+
     [HttpPost("{id}/tags")]
     public async Task<IActionResult> AddTag(int id, [FromBody] string tagName)
     {
@@ -57,25 +63,13 @@ public class PostsController : ControllerBase
     [HttpPost("{id}/favorite")]
     public async Task<IActionResult> Favorite(int id)
     {
-        var result = await _postWriteService.FavoriteAsync(id);
-        if (!result.IsSuccess)
-        {
-            return result.ToHttpResult();
-        }
-
-        return await _postReadService.GetPostAsync(id, CancellationToken.None).ToHttpResult();
+        return await _postWriteService.FavoriteAsync(id).ToHttpResult();
     }
 
     [HttpDelete("{id}/favorite")]
     public async Task<IActionResult> Unfavorite(int id)
     {
-        var result = await _postWriteService.UnfavoriteAsync(id);
-        if (!result.IsSuccess)
-        {
-            return result.ToHttpResult();
-        }
-
-        return await _postReadService.GetPostAsync(id, CancellationToken.None).ToHttpResult();
+        return await _postWriteService.UnfavoriteAsync(id).ToHttpResult();
     }
 
     [HttpGet("{id}/sources")]
@@ -87,13 +81,7 @@ public class PostsController : ControllerBase
     [HttpPut("{id}/sources")]
     public async Task<IActionResult> SetSources(int id, [FromBody] List<string> sources)
     {
-        var result = await _postWriteService.SetSourcesAsync(id, sources ?? []);
-        if (!result.IsSuccess)
-        {
-            return result.ToHttpResult();
-        }
-
-        return await _postReadService.GetPostAsync(id, CancellationToken.None).ToHttpResult();
+        return await _postWriteService.SetSourcesAsync(id, sources ?? []).ToHttpResult();
     }
 
     [HttpGet("{id}/content")]

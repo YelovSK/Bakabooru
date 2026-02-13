@@ -12,6 +12,8 @@ namespace Bakabooru.Processing.Jobs;
 
 public class ComputeSimilarityJob : IJob
 {
+    private sealed record SimilarityCandidate(int Id, string RelativePath, string LibraryPath);
+
     private readonly IServiceScopeFactory _scopeFactory;
     private readonly ILogger<ComputeSimilarityJob> _logger;
     private readonly int _parallelism;
@@ -28,6 +30,7 @@ public class ComputeSimilarityJob : IJob
 
     public string Name => "Compute Similarity";
     public string Description => "Computes perceptual hashes (dHash) for image posts.";
+    public bool SupportsAllMode => true;
 
     public async Task ExecuteAsync(JobContext context)
     {
@@ -35,40 +38,76 @@ public class ComputeSimilarityJob : IJob
         var db = scope.ServiceProvider.GetRequiredService<BakabooruDbContext>();
         var similarityService = scope.ServiceProvider.GetRequiredService<ISimilarityService>();
 
-        context.Status.Report("Loading posts...");
-
         // Only images have perceptual hashes
-        var query = db.Posts.Include(p => p.Library).AsQueryable();
+        var query = db.Posts.AsNoTracking().AsQueryable();
         if (context.Mode == JobMode.Missing)
-            query = query.Where(p => p.PerceptualHash == null || p.PerceptualHash == 0);
-
-        var posts = await query
-            .Select(p => new { p.Id, p.RelativePath, LibraryPath = p.Library.Path })
-            .ToListAsync(context.CancellationToken);
-
-        // Filter to images only (similarity hashing doesn't apply to video)
-        posts = posts.Where(p => SupportedMedia.IsImage(Path.GetExtension(p.RelativePath))).ToList();
-
-        _logger.LogInformation("Computing similarity hashes for {Count} posts (mode: {Mode})", posts.Count, context.Mode);
-
-        if (posts.Count == 0)
         {
-            context.Status.Report("All similarity hashes are up to date.");
-            context.Progress.Report(100);
+            query = query.Where(p => p.PerceptualHash == null || p.PerceptualHash == 0);
+        }
+
+        var totalCandidates = await query.CountAsync(context.CancellationToken);
+        _logger.LogInformation("Computing similarity hashes for {Count} candidate posts (mode: {Mode})", totalCandidates, context.Mode);
+
+        if (totalCandidates == 0)
+        {
+            context.State.Report(new JobState
+            {
+                Phase = "Completed",
+                Processed = 0,
+                Total = 0,
+                Succeeded = 0,
+                Failed = 0,
+                Summary = "All similarity hashes are up to date."
+            });
             return;
         }
 
+        var scanned = 0;
         int processed = 0;
         int failed = 0;
+        var lastId = 0;
 
         const int batchSize = 100;
-        for (int i = 0; i < posts.Count; i += batchSize)
+        while (true)
         {
-            var batch = posts.Skip(i).Take(batchSize).ToList();
+            var batch = await query
+                .Where(p => p.Id > lastId)
+                .OrderBy(p => p.Id)
+                .Select(p => new SimilarityCandidate(p.Id, p.RelativePath, p.Library.Path))
+                .Take(batchSize)
+                .ToListAsync(context.CancellationToken);
+
+            if (batch.Count == 0)
+            {
+                break;
+            }
+
+            lastId = batch[^1].Id;
+            scanned += batch.Count;
+
+            // Similarity hashing only applies to image files.
+            var imageBatch = batch
+                .Where(p => SupportedMedia.IsImage(Path.GetExtension(p.RelativePath)))
+                .ToList();
+
+            if (imageBatch.Count == 0)
+            {
+                context.State.Report(new JobState
+                {
+                    Phase = "Scanning candidates...",
+                    Processed = scanned,
+                    Total = totalCandidates,
+                    Succeeded = processed,
+                    Failed = failed,
+                    Summary = $"Scanned {scanned}/{totalCandidates} candidates"
+                });
+                continue;
+            }
+
             var results = new ConcurrentBag<(int PostId, ulong? Hash)>();
 
             await Parallel.ForEachAsync(
-                batch,
+                imageBatch,
                 new ParallelOptions
                 {
                     MaxDegreeOfParallelism = _parallelism,
@@ -91,7 +130,7 @@ public class ComputeSimilarityJob : IJob
                     }
                 });
 
-            var entityIds = batch.Select(p => p.Id).ToList();
+            var entityIds = imageBatch.Select(p => p.Id).ToList();
             var entities = await db.Posts
                 .Where(p => entityIds.Contains(p.Id))
                 .ToDictionaryAsync(p => p.Id, context.CancellationToken);
@@ -106,13 +145,26 @@ public class ComputeSimilarityJob : IJob
 
             await db.SaveChangesAsync(context.CancellationToken);
 
-            var total = processed + failed;
-            context.Progress.Report((float)total / posts.Count * 100);
-            context.Status.Report($"Computing similarity hashes: {total}/{posts.Count}");
+            context.State.Report(new JobState
+            {
+                Phase = "Computing similarity hashes...",
+                Processed = scanned,
+                Total = totalCandidates,
+                Succeeded = processed,
+                Failed = failed,
+                Summary = $"Computed {processed} hashes ({failed} failed)"
+            });
         }
 
-        context.Progress.Report(100);
-        context.Status.Report($"Done — computed {processed} similarity hashes ({failed} failed)");
+        context.State.Report(new JobState
+        {
+            Phase = "Completed",
+            Processed = scanned,
+            Total = totalCandidates,
+            Succeeded = processed,
+            Failed = failed,
+            Summary = $"Computed {processed} similarity hashes ({failed} failed)."
+        });
         _logger.LogInformation("Similarity hash computation complete: {Processed} processed, {Failed} failed", processed, failed);
     }
 }

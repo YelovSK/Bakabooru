@@ -23,6 +23,7 @@ public class SchedulerService : BackgroundService
     [
         ("Scan All Libraries", "0 */6 * * *"),    // Every 6 hours
         ("Generate Thumbnails", "30 */6 * * *"),   // 30 min after scan
+        ("Cleanup Orphaned Thumbnails", "45 */6 * * *"), // 45 min after scan
         ("Extract Metadata", "35 */6 * * *"),      // 35 min after scan
         ("Compute Similarity", "40 */6 * * *"),    // 40 min after scan
         ("Find Duplicates", "0 3 * * 0"),          // Weekly, Sunday 3 AM

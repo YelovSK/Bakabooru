@@ -36,13 +36,17 @@ public class CleanupOrphanedThumbnailsJob : IJob
 
     public string Name => "Cleanup Orphaned Thumbnails";
     public string Description => "Removes thumbnail files that are not referenced by any post.";
+    public bool SupportsAllMode => false;
 
     public async Task ExecuteAsync(JobContext context)
     {
         using var scope = _scopeFactory.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<BakabooruDbContext>();
 
-        context.Status.Report("Loading known content hashes...");
+        context.State.Report(new JobState
+        {
+            Phase = "Loading known content hashes..."
+        });
         var knownHashes = (await db.Posts
                 .AsNoTracking()
                 .Where(p => !string.IsNullOrEmpty(p.ContentHash))
@@ -57,8 +61,15 @@ public class CleanupOrphanedThumbnailsJob : IJob
 
         if (thumbnailFiles.Count == 0)
         {
-            context.Progress.Report(100);
-            context.Status.Report("No thumbnails found.");
+            context.State.Report(new JobState
+            {
+                Phase = "Completed",
+                Processed = 0,
+                Total = 0,
+                Succeeded = 0,
+                Failed = 0,
+                Summary = "No thumbnails found."
+            });
             return;
         }
 
@@ -94,13 +105,27 @@ public class CleanupOrphanedThumbnailsJob : IJob
             var processed = index + 1;
             if (processed % 50 == 0 || processed == thumbnailFiles.Count)
             {
-                context.Progress.Report((float)processed / thumbnailFiles.Count * 100);
-                context.Status.Report($"Cleaning thumbnails: {processed}/{thumbnailFiles.Count}");
+                context.State.Report(new JobState
+                {
+                    Phase = "Cleaning orphaned thumbnails...",
+                    Processed = processed,
+                    Total = thumbnailFiles.Count,
+                    Succeeded = deleted,
+                    Failed = failed,
+                    Summary = $"Deleted {deleted} orphaned thumbnails ({failed} failed)"
+                });
             }
         }
 
-        context.Progress.Report(100);
-        context.Status.Report($"Done — removed {deleted} orphaned thumbnails ({failed} failed)");
+        context.State.Report(new JobState
+        {
+            Phase = "Completed",
+            Processed = thumbnailFiles.Count,
+            Total = thumbnailFiles.Count,
+            Succeeded = deleted,
+            Failed = failed,
+            Summary = $"Removed {deleted} orphaned thumbnails ({failed} failed)."
+        });
         _logger.LogInformation(
             "Orphaned thumbnail cleanup complete: {Deleted} deleted, {Failed} failed, {Total} scanned",
             deleted,

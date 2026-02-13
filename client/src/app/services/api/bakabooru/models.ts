@@ -83,6 +83,7 @@ export interface BakabooruPostDto {
     libraryId: number;
     relativePath: string;
     contentHash: string;
+    sizeBytes: number;
     width: number;
     height: number;
     contentType: string;
@@ -114,19 +115,70 @@ export interface BakabooruSystemInfoDto {
     serverTime: string;
 }
 
-export interface BakabooruJobInfo {
+export enum JobStatus {
+    Idle = 0,
+    Running = 1,
+    Completed = 2,
+    Failed = 3,
+    Cancelled = 4
+}
+
+export type JobMode = 'missing' | 'all';
+
+export interface JobState {
+    phase: string;
+    processed?: number;
+    total?: number;
+    succeeded?: number;
+    failed?: number;
+    skipped?: number;
+    summary?: string;
+}
+
+export interface JobInfo {
     id: string;
+    executionId?: number;
     name: string;
-    status: number;
-    progress: number;
-    message: string;
+    status: JobStatus;
+    state: JobState;
     startTime?: string;
     endTime?: string;
 }
 
+export interface JobViewModel {
+    name: string;
+    description: string;
+    supportsAllMode: boolean;
+    isRunning: boolean;
+    activeJobInfo?: JobInfo;
+}
+
+export interface JobExecution {
+    id: number;
+    jobName: string;
+    status: JobStatus;
+    startTime: string;
+    endTime?: string;
+    errorMessage?: string;
+    state?: JobState;
+}
+
+export interface JobHistoryResponse {
+    items: JobExecution[];
+    total: number;
+}
+
+export interface ScheduledJob {
+    id: number;
+    jobName: string;
+    cronExpression: string;
+    isEnabled: boolean;
+    lastRun?: string;
+    nextRun?: string;
+}
+
 export interface UpdatePostMetadata {
-    tags?: string[] | BakabooruTagDto[];
-    source?: string;
+    tags?: string[];
     sources?: string[];
     safety?: Safety;
     version?: string;

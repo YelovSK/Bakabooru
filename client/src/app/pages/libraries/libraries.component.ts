@@ -8,11 +8,12 @@ import { BakabooruService } from '@services/api/bakabooru/bakabooru.service';
 import { Library } from '@services/api/bakabooru/models';
 import { ButtonComponent } from '@shared/components/button/button.component';
 import { ToastService } from '@services/toast.service';
+import { FileSizePipe } from '@shared/pipes/file-size.pipe';
 
 @Component({
     selector: 'app-libraries',
     standalone: true,
-    imports: [CommonModule, FormsModule, ButtonComponent],
+    imports: [CommonModule, FormsModule, ButtonComponent, FileSizePipe],
     templateUrl: './libraries.component.html',
     styleUrl: './libraries.component.css',
     changeDetection: ChangeDetectionStrategy.OnPush,
@@ -170,13 +171,5 @@ export class LibrariesComponent {
                 this.removingIgnoredPathId.set(null);
             }
         });
-    }
-
-    formatSize(bytes: number): string {
-        if (bytes === 0) return '0 B';
-        const k = 1024;
-        const sizes = ['B', 'KB', 'MB', 'GB', 'TB'];
-        const i = Math.floor(Math.log(bytes) / Math.log(k));
-        return `${(bytes / Math.pow(k, i)).toFixed(2)} ${sizes[i]}`;
     }
 }

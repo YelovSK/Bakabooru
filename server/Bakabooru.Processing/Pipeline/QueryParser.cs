@@ -70,13 +70,14 @@ public static class QueryParser
                 continue;
             }
 
+            var unescapedToken = UnescapeToken(token);
             if (isNegated)
             {
-                result.ExcludedTags.Add(token);
+                result.ExcludedTags.Add(unescapedToken);
             }
             else
             {
-                result.IncludedTags.Add(token);
+                result.IncludedTags.Add(unescapedToken);
             }
         }
 
@@ -85,14 +86,14 @@ public static class QueryParser
 
     private static bool TryParseDirective(SearchQuery result, string token, bool isNegated)
     {
-        var separatorIndex = token.IndexOf(':');
+        var separatorIndex = IndexOfUnescapedColon(token);
         if (separatorIndex <= 0 || separatorIndex == token.Length - 1)
         {
             return false;
         }
 
-        var key = token[..separatorIndex].Trim().ToLowerInvariant();
-        var value = token[(separatorIndex + 1)..].Trim();
+        var key = UnescapeToken(token[..separatorIndex]).Trim().ToLowerInvariant();
+        var value = UnescapeToken(token[(separatorIndex + 1)..]).Trim();
         if (string.IsNullOrEmpty(value))
         {
             return false;
@@ -408,5 +409,70 @@ public static class QueryParser
 
         filter = new NumericFilter(@operator, valueNumber);
         return true;
+    }
+
+    private static int IndexOfUnescapedColon(string value)
+    {
+        var escaped = false;
+        for (var i = 0; i < value.Length; i++)
+        {
+            var ch = value[i];
+            if (escaped)
+            {
+                escaped = false;
+                continue;
+            }
+
+            if (ch == '\\')
+            {
+                escaped = true;
+                continue;
+            }
+
+            if (ch == ':')
+            {
+                return i;
+            }
+        }
+
+        return -1;
+    }
+
+    private static string UnescapeToken(string token)
+    {
+        if (string.IsNullOrEmpty(token) || token.IndexOf('\\') < 0)
+        {
+            return token;
+        }
+
+        Span<char> buffer = stackalloc char[token.Length];
+        var writeIndex = 0;
+        var escaped = false;
+
+        for (var i = 0; i < token.Length; i++)
+        {
+            var ch = token[i];
+            if (escaped)
+            {
+                buffer[writeIndex++] = ch;
+                escaped = false;
+                continue;
+            }
+
+            if (ch == '\\')
+            {
+                escaped = true;
+                continue;
+            }
+
+            buffer[writeIndex++] = ch;
+        }
+
+        if (escaped)
+        {
+            buffer[writeIndex++] = '\\';
+        }
+
+        return new string(buffer[..writeIndex]);
     }
 }

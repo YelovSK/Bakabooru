@@ -14,8 +14,7 @@ public class JobContext
 {
     public string JobId { get; set; } = string.Empty;
     public CancellationToken CancellationToken { get; set; }
-    public IProgress<float> Progress { get; set; } = null!;
-    public IProgress<string> Status { get; set; } = null!;
+    public IProgress<JobState> State { get; set; } = new Progress<JobState>();
     public JobMode Mode { get; set; } = JobMode.Missing;
 }
 
@@ -23,5 +22,6 @@ public interface IJob
 {
     string Name { get; }
     string Description { get; }
+    bool SupportsAllMode { get; }
     Task ExecuteAsync(JobContext context);
 }

@@ -7,6 +7,8 @@ namespace Bakabooru.Core.DTOs;
 public class JobViewDto
 {
     public string Name { get; set; } = string.Empty;
+    public string Description { get; set; } = string.Empty;
+    public bool SupportsAllMode { get; set; }
     public bool IsRunning { get; set; }
     public JobInfo? ActiveJobInfo { get; set; }
 }
@@ -24,6 +26,7 @@ public class JobExecutionDto
     public DateTime StartTime { get; set; }
     public DateTime? EndTime { get; set; }
     public string? ErrorMessage { get; set; }
+    public JobState? State { get; set; }
 }
 
 public class JobHistoryResponseDto

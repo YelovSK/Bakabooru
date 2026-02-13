@@ -12,9 +12,12 @@ namespace Bakabooru.Processing.Jobs;
 
 public class GenerateThumbnailsJob : IJob
 {
+    private sealed record ThumbnailCandidate(int Id, string ContentHash, string RelativePath, string LibraryPath);
+
     private readonly IServiceScopeFactory _scopeFactory;
     private readonly ILogger<GenerateThumbnailsJob> _logger;
     private readonly string _thumbnailPath;
+    private readonly int _parallelism;
 
     public GenerateThumbnailsJob(
         IServiceScopeFactory scopeFactory,
@@ -24,6 +27,7 @@ public class GenerateThumbnailsJob : IJob
     {
         _scopeFactory = scopeFactory;
         _logger = logger;
+        _parallelism = Math.Max(1, options.Value.Processing.ThumbnailParallelism);
         _thumbnailPath = StoragePathResolver.ResolvePath(
             hostEnvironment.ContentRootPath,
             options.Value.Storage.ThumbnailPath,
@@ -35,6 +39,7 @@ public class GenerateThumbnailsJob : IJob
 
     public string Name => "Generate Thumbnails";
     public string Description => "Generates missing (or all) thumbnails for posts.";
+    public bool SupportsAllMode => true;
 
     public async Task ExecuteAsync(JobContext context)
     {
@@ -42,65 +47,118 @@ public class GenerateThumbnailsJob : IJob
         var db = scope.ServiceProvider.GetRequiredService<BakabooruDbContext>();
         var imageProcessor = scope.ServiceProvider.GetRequiredService<IImageProcessor>();
 
-        context.Status.Report("Loading posts...");
-
-        var posts = await db.Posts
-            .Include(p => p.Library)
+        var query = db.Posts
+            .AsNoTracking()
             .Where(p => !string.IsNullOrEmpty(p.ContentHash))
-            .Select(p => new { p.Id, p.ContentHash, p.RelativePath, LibraryPath = p.Library.Path })
-            .ToListAsync(context.CancellationToken);
+            .AsQueryable();
 
-        // Filter based on mode
-        var toProcess = context.Mode == JobMode.All
-            ? posts
-            : posts.Where(p => !File.Exists(Path.Combine(_thumbnailPath, $"{p.ContentHash}.jpg"))).ToList();
+        var totalCandidates = await query.CountAsync(context.CancellationToken);
+        _logger.LogInformation(
+            "Generating thumbnails for up to {Count} posts (mode: {Mode})",
+            totalCandidates,
+            context.Mode);
 
-        _logger.LogInformation("Generating thumbnails for {Count}/{Total} posts (mode: {Mode})", 
-            toProcess.Count, posts.Count, context.Mode);
-
-        if (toProcess.Count == 0)
+        if (totalCandidates == 0)
         {
-            context.Status.Report("All thumbnails are up to date.");
-            context.Progress.Report(100);
+            context.State.Report(new JobState
+            {
+                Phase = "Completed",
+                Processed = 0,
+                Total = 0,
+                Succeeded = 0,
+                Failed = 0,
+                Skipped = 0,
+                Summary = "All thumbnails are up to date."
+            });
             return;
         }
 
+        var scanned = 0;
         int processed = 0;
         int failed = 0;
+        int skipped = 0;
+        int lastId = 0;
+
         var parallelOptions = new ParallelOptions
         {
-            MaxDegreeOfParallelism = Math.Max(2, Environment.ProcessorCount / 2),
+            MaxDegreeOfParallelism = _parallelism,
             CancellationToken = context.CancellationToken
         };
 
-        await Parallel.ForEachAsync(toProcess, parallelOptions, async (post, ct) =>
+        const int batchSize = 200;
+        while (true)
         {
-            try
-            {
-                var fullPath = Path.Combine(post.LibraryPath, post.RelativePath);
-                var destination = Path.Combine(_thumbnailPath, $"{post.ContentHash}.jpg");
+            var batch = await query
+                .Where(p => p.Id > lastId)
+                .OrderBy(p => p.Id)
+                .Select(p => new ThumbnailCandidate(p.Id, p.ContentHash!, p.RelativePath, p.Library.Path))
+                .Take(batchSize)
+                .ToListAsync(context.CancellationToken);
 
-                if (context.Mode == JobMode.All || !File.Exists(destination))
+            if (batch.Count == 0)
+            {
+                break;
+            }
+
+            lastId = batch[^1].Id;
+            scanned += batch.Count;
+
+            List<ThumbnailCandidate> toProcess;
+            if (context.Mode == JobMode.All)
+            {
+                toProcess = batch;
+            }
+            else
+            {
+                toProcess = batch
+                    .Where(p => !File.Exists(Path.Combine(_thumbnailPath, $"{p.ContentHash}.jpg")))
+                    .ToList();
+
+                skipped += batch.Count - toProcess.Count;
+            }
+
+            await Parallel.ForEachAsync(toProcess, parallelOptions, async (post, ct) =>
+            {
+                try
                 {
+                    var fullPath = Path.Combine(post.LibraryPath, post.RelativePath);
+                    var destination = Path.Combine(_thumbnailPath, $"{post.ContentHash}.jpg");
                     await imageProcessor.GenerateThumbnailAsync(fullPath, destination, 400, 400, ct);
+                    Interlocked.Increment(ref processed);
                 }
-
-                var count = Interlocked.Increment(ref processed);
-                if (count % 10 == 0 || count == toProcess.Count)
+                catch (Exception ex)
                 {
-                    context.Progress.Report((float)count / toProcess.Count * 100);
-                    context.Status.Report($"Generating thumbnails: {count}/{toProcess.Count}");
+                    Interlocked.Increment(ref failed);
+                    _logger.LogWarning(ex, "Failed to generate thumbnail for post {Id}: {Path}", post.Id, post.RelativePath);
                 }
-            }
-            catch (Exception ex)
-            {
-                Interlocked.Increment(ref failed);
-                _logger.LogWarning(ex, "Failed to generate thumbnail for post {Id}: {Path}", post.Id, post.RelativePath);
-            }
-        });
+            });
 
-        context.Progress.Report(100);
-        context.Status.Report($"Done — generated {processed} thumbnails ({failed} failed)");
-        _logger.LogInformation("Thumbnail generation complete: {Processed} generated, {Failed} failed", processed, failed);
+            context.State.Report(new JobState
+            {
+                Phase = "Generating thumbnails...",
+                Processed = scanned,
+                Total = totalCandidates,
+                Succeeded = processed,
+                Failed = failed,
+                Skipped = skipped,
+                Summary = $"Generated {processed}, skipped {skipped}, failed {failed}"
+            });
+        }
+
+        context.State.Report(new JobState
+        {
+            Phase = "Completed",
+            Processed = scanned,
+            Total = totalCandidates,
+            Succeeded = processed,
+            Failed = failed,
+            Skipped = skipped,
+            Summary = $"Generated {processed} thumbnails ({failed} failed, {skipped} skipped)."
+        });
+        _logger.LogInformation(
+            "Thumbnail generation complete: {Processed} generated, {Failed} failed, {Skipped} skipped",
+            processed,
+            failed,
+            skipped);
     }
 }

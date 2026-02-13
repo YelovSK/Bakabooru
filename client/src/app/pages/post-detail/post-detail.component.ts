@@ -20,10 +20,12 @@ import { ProgressiveImageDirective, TooltipDirective } from '@shared/directives'
 import { HotkeysService } from '@services/hotkeys.service';
 import { AppLinks } from '@app/app.paths';
 import { PostEditService } from './post-edit.service';
+import { FileSizePipe } from '@shared/pipes/file-size.pipe';
+import { FileNamePipe } from '@shared/pipes/file-name.pipe';
 
 @Component({
   selector: 'app-post-detail',
-  imports: [CommonModule, RouterLink, TagPipe, ButtonComponent, AutocompleteComponent, AutoTaggingResultsComponent, SimpleTabsComponent, SimpleTabComponent, TooltipDirective, ProgressiveImageDirective],
+  imports: [CommonModule, RouterLink, TagPipe, ButtonComponent, AutocompleteComponent, AutoTaggingResultsComponent, SimpleTabsComponent, SimpleTabComponent, TooltipDirective, ProgressiveImageDirective, FileSizePipe, FileNamePipe],
   providers: [PostEditService],
   templateUrl: './post-detail.component.html',
   styleUrl: './post-detail.component.css',
@@ -344,6 +346,7 @@ export class PostDetailComponent {
       : this.bakabooru.favoritePost(post.id);
 
     operation
+      .pipe(switchMap(() => this.bakabooru.getPost(post.id)))
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe({
         next: updatedPost => {

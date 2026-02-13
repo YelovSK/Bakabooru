@@ -1,4 +1,4 @@
-import { Component, input, computed, inject } from '@angular/core';
+import { ChangeDetectionStrategy, Component, input, computed, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ControlValueAccessor, NgControl, FormsModule } from '@angular/forms';
 
@@ -10,6 +10,7 @@ import { generateId } from '@shared/utils/utils';
   standalone: true,
   imports: [CommonModule, FormsModule, FormErrorsComponent],
   templateUrl: './form-input.component.html',
+  changeDetection: ChangeDetectionStrategy.OnPush
 })
 export class FormInputComponent implements ControlValueAccessor {
   // UI inputs

@@ -1,12 +1,16 @@
-import { Component, OnInit, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, OnInit, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { DuplicateService, DuplicateGroup, DuplicatePost } from '../../services/api/duplicate.service';
 import { environment } from '../../../environments/environment';
+import { FileNamePipe } from '@shared/pipes/file-name.pipe';
+import { FileSizePipe } from '@shared/pipes/file-size.pipe';
+import { getFileNameFromPath } from '@shared/utils/utils';
 
 @Component({
   selector: 'app-duplicates-page',
   standalone: true,
-  imports: [CommonModule],
+  imports: [CommonModule, FileNamePipe, FileSizePipe],
+  changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <div class="container mx-auto p-6">
       <h1 class="text-3xl font-bold mb-2 text-terminal-green">Duplicate Detection</h1>
@@ -83,10 +87,10 @@ import { environment } from '../../../environments/environment';
             </div>
             <!-- Info overlay -->
             <div class="p-3">
-              <div class="text-xs text-gray-400 truncate mb-1" [title]="post.relativePath">{{ getFileName(post.relativePath) }}</div>
+              <div class="text-xs text-gray-400 truncate mb-1" [title]="post.relativePath">{{ post.relativePath | fileName }}</div>
               <div class="flex justify-between text-xs text-gray-500">
                 <span>{{ post.width }}×{{ post.height }}</span>
-                <span>{{ formatSize(post.sizeBytes) }}</span>
+                <span>{{ post.sizeBytes | fileSize }}</span>
               </div>
             </div>
             <!-- Keep this overlay on hover -->
@@ -135,7 +139,7 @@ export class DuplicatesPageComponent implements OnInit {
   }
 
   keepOne(group: DuplicateGroup, post: DuplicatePost) {
-    if (!confirm(`Keep "${this.getFileName(post.relativePath)}" and remove the other ${group.posts.length - 1} post(s) from the booru?`))
+    if (!confirm(`Keep "${getFileNameFromPath(post.relativePath)}" and remove the other ${group.posts.length - 1} post(s) from the booru?`))
       return;
 
     this.duplicateService.keepOne(group.id, post.id).subscribe(() => {
@@ -156,16 +160,6 @@ export class DuplicatesPageComponent implements OnInit {
       },
       error: (err) => alert('Failed: ' + err.message)
     });
-  }
-
-  getFileName(path: string): string {
-    return path.split(/[/\\]/).pop() || path;
-  }
-
-  formatSize(bytes: number): string {
-    if (bytes < 1024) return bytes + ' B';
-    if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
-    return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
   }
 
   onImageError(event: Event) {

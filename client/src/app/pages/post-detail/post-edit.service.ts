@@ -6,6 +6,7 @@ import { AutoTaggingService } from '@services/auto-tagging/auto-tagging.service'
 import { ToastService } from '@services/toast.service';
 import { BakabooruPostDto, UpdatePostMetadata, ManagedTagCategory } from '@models';
 import { AutoTaggingResult, TaggingStatus } from '@services/auto-tagging/models';
+import { areArraysEqual, areSetsEqual } from '@shared/utils/utils';
 
 export interface PostEditState {
   sources: string[];
@@ -33,13 +34,13 @@ export class PostEditService {
     const current = this.editState();
     if (!original || !current) return false;
 
-    const originalTags = original.tags.map(t => t.name).sort();
-    const currentTags = [...current.tags].sort();
     const originalSources = original.sources || [];
+    const originalTags = new Set(original.tags.map(t => t.name));
+    const currentTags = new Set(current.tags);
 
     return (
-      JSON.stringify(originalSources) !== JSON.stringify(current.sources) ||
-      JSON.stringify(originalTags) !== JSON.stringify(currentTags)
+      !areArraysEqual(originalSources, current.sources) ||
+      !areSetsEqual(originalTags, currentTags)
     );
   });
 
@@ -187,17 +188,18 @@ export class PostEditService {
 
     const payload: UpdatePostMetadata = {};
     const originalSources = post.sources || [];
-    if (JSON.stringify(originalSources) !== JSON.stringify(state.sources)) {
+    if (!areArraysEqual(originalSources, state.sources)) {
       payload.sources = state.sources;
     }
 
-    const originalTags = post.tags.map(t => t.name).sort();
-    const currentTags = [...state.tags].sort();
-    if (JSON.stringify(originalTags) !== JSON.stringify(currentTags)) {
+    const originalTags = new Set(post.tags.map(t => t.name));
+    const currentTags = new Set(state.tags);
+    if (!areSetsEqual(originalTags, currentTags)) {
       payload.tags = state.tags;
     }
 
     return this.bakabooru.updatePost(post.id, payload).pipe(
+      switchMap(() => this.bakabooru.getPost(post.id)),
       switchMap(updatedPost => {
         // Update tag categories from auto-tagging results
         const categorizedTags = this.collectCategorizedTags();

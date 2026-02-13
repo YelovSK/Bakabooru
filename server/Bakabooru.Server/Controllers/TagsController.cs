@@ -35,7 +35,7 @@ public class TagsController : ControllerBase
     [HttpPut("{id}")]
     public async Task<IActionResult> UpdateTag(int id, [FromBody] UpdateTagDto dto)
     {
-        return await _tagService.UpdateTagAsync(id, dto).ToHttpResult();
+        return await _tagService.UpdateTagAsync(id, dto).ToHttpResult(_ => NoContent());
     }
 
     [HttpPost("{id}/merge")]

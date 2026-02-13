@@ -1,14 +1,16 @@
-import { Component, inject, signal, OnInit } from '@angular/core';
+import { ChangeDetectionStrategy, Component, inject, signal, OnInit } from '@angular/core';
 import { BakabooruService } from '@services/api/bakabooru/bakabooru.service';
 import { BakabooruSystemInfoDto } from '@services/api/bakabooru/models';
 import { CommonModule, DecimalPipe, DatePipe } from '@angular/common';
+import { FileSizePipe } from '@shared/pipes/file-size.pipe';
 
 @Component({
     selector: 'app-info',
     standalone: true,
-    imports: [CommonModule, DecimalPipe, DatePipe],
+    imports: [CommonModule, DecimalPipe, DatePipe, FileSizePipe],
     templateUrl: './info.component.html',
-    styleUrl: './info.component.css'
+    styleUrl: './info.component.css',
+    changeDetection: ChangeDetectionStrategy.OnPush
 })
 export class InfoComponent implements OnInit {
     private readonly bakabooru = inject(BakabooruService);
@@ -19,13 +21,5 @@ export class InfoComponent implements OnInit {
         this.bakabooru.getGlobalInfo().subscribe(info => {
             this.info.set(info);
         });
-    }
-
-    formatSize(bytes: number): string {
-        if (bytes === 0) return '0 B';
-        const k = 1024;
-        const sizes = ['B', 'KB', 'MB', 'GB', 'TB'];
-        const i = Math.floor(Math.log(bytes) / Math.log(k));
-        return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
     }
 }

@@ -1,0 +1,138 @@
+<div class="container mx-auto p-6">
+  <h1 class="text-3xl font-bold mb-2 text-terminal-green">Job Queues</h1>
+  <p class="text-gray-400 mb-8">Run and schedule background processing tasks.</p>
+
+  <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5 mb-10">
+    @for (job of jobs(); track job.name) {
+      <div class="bg-gray-900 border border-gray-700 rounded-lg p-5 shadow-lg flex flex-col">
+        <div class="flex justify-between items-start mb-2">
+          <h3 class="text-lg font-semibold text-white">{{ job.name }}</h3>
+          @if (job.isRunning) {
+            <span class="bg-yellow-600/20 text-yellow-400 border border-yellow-600/40 px-2 py-0.5 rounded text-xs font-bold shrink-0 ml-2">
+              RUNNING
+            </span>
+          }
+        </div>
+        <p class="text-sm text-gray-400 mb-4 flex-1">{{ job.description }}</p>
+
+        @if (job.isRunning && job.activeJobInfo) {
+          <div class="mb-4">
+            <app-progress-bar
+              class="mb-1.5"
+              [progress]="getProgressPercent(job.activeJobInfo.state)"
+              [trackClass]="'bg-gray-700'"
+              [fillClass]="'bg-accent-primary'">
+            </app-progress-bar>
+            <p class="text-xs text-gray-400">
+              {{ job.activeJobInfo.state.phase || 'Running...' }}
+            </p>
+            @if (getStateDetail(job.activeJobInfo.state); as detail) {
+              <p class="text-xs text-gray-500 mt-1">{{ detail }}</p>
+            }
+          </div>
+        }
+
+        <div class="flex gap-2 mt-auto">
+          @if (!job.isRunning) {
+            @if (job.supportsAllMode) {
+              <app-button variant="primary" size="sm" [fullWidth]="true" (click)="runJob(job.name, 'missing')">Missing</app-button>
+              <app-button variant="secondary" size="sm" [fullWidth]="true" (click)="runJob(job.name, 'all')">All</app-button>
+            } @else {
+              <app-button variant="primary" size="sm" [fullWidth]="true" (click)="runJob(job.name, 'missing')">Run</app-button>
+            }
+          }
+
+          @if (job.isRunning && job.activeJobInfo) {
+            <app-button variant="danger" size="sm" [fullWidth]="true" (click)="cancelJob(job.activeJobInfo.id)">Cancel</app-button>
+          }
+        </div>
+      </div>
+    }
+  </div>
+
+  <h2 class="text-2xl font-bold mb-4 text-white">Schedules</h2>
+  <div class="bg-gray-900 border border-gray-700 rounded-lg p-6 shadow-lg mb-8">
+    <table class="w-full text-left text-gray-300">
+      <thead>
+        <tr class="border-b border-gray-700">
+          <th class="py-2">Job Name</th>
+          <th class="py-2">Cron Expression</th>
+          <th class="py-2">Next Run</th>
+          <th class="py-2">Last Run</th>
+          <th class="py-2">Enabled</th>
+          <th class="py-2">Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        @for (schedule of schedules(); track schedule.id) {
+          <tr class="border-b border-gray-800">
+            <td class="py-2">{{ schedule.jobName }}</td>
+            <td class="py-2">
+              <input
+                type="text"
+                [(ngModel)]="schedule.cronExpression"
+                placeholder="0 */6 * * *"
+                class="bg-gray-800 border border-gray-600 rounded px-2 py-1 text-white w-36 font-mono text-sm">
+            </td>
+            <td class="py-2 text-sm">{{ formatDateTime(schedule.nextRun) }}</td>
+            <td class="py-2 text-sm">{{ formatDateTime(schedule.lastRun) }}</td>
+            <td class="py-2">
+              <input type="checkbox" [(ngModel)]="schedule.isEnabled" class="w-4 h-4">
+            </td>
+            <td class="py-2">
+              <app-button variant="secondary" size="xs" (click)="updateSchedule(schedule)">Save</app-button>
+            </td>
+          </tr>
+        }
+      </tbody>
+    </table>
+  </div>
+
+  <h2 class="text-2xl font-bold mb-4 text-white">Execution History</h2>
+  <div class="bg-gray-900 border border-gray-700 rounded-lg p-6 shadow-lg overflow-x-auto">
+    <table class="w-full text-left text-gray-300">
+      <thead>
+        <tr class="border-b border-gray-700">
+          <th class="py-2">Job</th>
+          <th class="py-2">Status</th>
+          <th class="py-2">Start Time</th>
+          <th class="py-2">Duration</th>
+          <th class="py-2">Result</th>
+          <th class="py-2">Error</th>
+        </tr>
+      </thead>
+      <tbody>
+        @for (run of history(); track run.id) {
+          <tr class="border-b border-gray-800 hover:bg-gray-800">
+            <td class="py-2">{{ run.jobName }}</td>
+            <td class="py-2">
+              <span
+                [class.text-green-400]="run.status === jobStatus.Completed"
+                [class.text-red-400]="run.status === jobStatus.Failed"
+                [class.text-yellow-400]="run.status === jobStatus.Running"
+                [class.text-gray-400]="run.status === jobStatus.Cancelled">
+                {{ getStatusText(run.status) }}
+              </span>
+            </td>
+            <td class="py-2">{{ formatDateTime(run.startTime) }}</td>
+            <td class="py-2">
+              {{ getHistoryDuration(run) }}
+            </td>
+            <td class="py-2 text-sm text-gray-400">{{ formatHistoryState(run) }}</td>
+            <td class="py-2 text-red-400 text-sm">{{ run.errorMessage }}</td>
+          </tr>
+        }
+      </tbody>
+    </table>
+
+    @if (historyTotalPages() > 1) {
+      <div class="flex justify-center mt-4 pt-4 border-t border-gray-700">
+        <app-paginator
+          [currentPage]="historyPage()"
+          [totalPages]="historyTotalPages()"
+          (pageChange)="onHistoryPageChange($event)">
+        </app-paginator>
+      </div>
+    }
+  </div>
+</div>

@@ -25,5 +25,5 @@
 - [x] add post sources table, APIs, and integrate in UI
 - [x] i dont like services returning AddTagResult, FavoriteResult etc. Either use a generic Result<T> or throw exceptions and use middleware.
 - [x] remove old compabitility with oxibooru.. just use bakabooru apis. Remove stuff not needed for bakabooru like registration, upload etc
-- check if server memory usage cannot be lowered (right now around 400mb)
+- [x] check if server memory usage cannot be lowered (right now around 400mb)
 - re-consider how to handle auto-tagging (e.g. should it move to server-side, whether to implement hash-based reverse lookup for gelbooru and danbooru, deepdanbooru, ...)

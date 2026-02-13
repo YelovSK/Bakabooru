@@ -27,33 +27,59 @@ public class FindDuplicatesJob : IJob
 
     public string Name => "Find Duplicates";
     public string Description => "Scans for exact (content hash) and perceptual (dHash) duplicate posts.";
+    public bool SupportsAllMode => false;
 
     public async Task ExecuteAsync(JobContext context)
     {
         using var scope = _scopeFactory.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<BakabooruDbContext>();
 
-        context.Status.Report("Loading posts...");
+        context.State.Report(new JobState
+        {
+            Phase = "Loading posts..."
+        });
         var posts = await db.Posts
             .AsNoTracking()
             .Select(p => new { p.Id, p.ContentHash, p.PerceptualHash })
             .ToListAsync(context.CancellationToken);
+        context.State.Report(new JobState
+        {
+            Phase = "Loading posts...",
+            Processed = posts.Count,
+            Total = posts.Count,
+            Summary = $"Loaded {posts.Count} posts for duplicate analysis"
+        });
 
         _logger.LogInformation("Loaded {Count} posts for duplicate analysis", posts.Count);
 
         // Clear old unresolved groups (they'll be regenerated)
-        context.Status.Report("Clearing old unresolved groups...");
+        context.State.Report(new JobState
+        {
+            Phase = "Clearing old unresolved groups..."
+        });
         var oldGroups = await db.DuplicateGroups
             .Where(g => !g.IsResolved)
             .ToListAsync(context.CancellationToken);
         db.DuplicateGroups.RemoveRange(oldGroups);
         await db.SaveChangesAsync(context.CancellationToken);
+        context.State.Report(new JobState
+        {
+            Phase = "Clearing old unresolved groups...",
+            Processed = oldGroups.Count,
+            Total = oldGroups.Count,
+            Summary = $"Cleared {oldGroups.Count} old unresolved groups"
+        });
 
         var newGroups = new List<DuplicateGroup>();
 
         // --- Phase 1: Exact duplicates (same content hash) ---
-        context.Status.Report("Finding exact duplicates (content hash)...");
-        context.Progress.Report(10);
+        context.State.Report(new JobState
+        {
+            Phase = "Finding exact duplicates...",
+            Processed = 0,
+            Total = posts.Count,
+            Summary = "Grouping by content hash"
+        });
 
         var exactGroups = posts
             .Where(p => !string.IsNullOrEmpty(p.ContentHash))
@@ -72,10 +98,21 @@ public class FindDuplicatesJob : IJob
         }
 
         _logger.LogInformation("Found {Count} exact duplicate groups", newGroups.Count);
-        context.Progress.Report(30);
+        context.State.Report(new JobState
+        {
+            Phase = "Finding exact duplicates...",
+            Processed = posts.Count,
+            Total = posts.Count,
+            Summary = $"Exact duplicate groups: {newGroups.Count}"
+        });
 
         // --- Phase 2: Perceptual duplicates (dHash hamming distance) ---
-        context.Status.Report("Finding perceptual duplicates (dHash)...");
+        context.State.Report(new JobState
+        {
+            Phase = "Finding perceptual duplicates...",
+            Processed = 0,
+            Total = null
+        });
 
         var hashPosts = posts
             .Where(p => p.PerceptualHash.HasValue && p.PerceptualHash.Value != 0)
@@ -144,8 +181,13 @@ public class FindDuplicatesJob : IJob
                     if (percent > lastReportedPercent + 2) // avoid too-frequent updates
                     {
                         lastReportedPercent = percent;
-                        context.Progress.Report(percent);
-                        context.Status.Report($"Comparing perceptual hashes: {comparedSoFar:N0}/{totalComparisons:N0}");
+                        context.State.Report(new JobState
+                        {
+                            Phase = "Comparing perceptual hashes...",
+                            Processed = comparedSoFar,
+                            Total = totalComparisons,
+                            Summary = $"Groups so far: {newGroups.Count}"
+                        });
                     }
                 }
             }
@@ -175,10 +217,19 @@ public class FindDuplicatesJob : IJob
         }
 
         _logger.LogInformation("Found {Count} perceptual duplicate groups", perceptualCount);
+        context.State.Report(new JobState
+        {
+            Phase = "Finding perceptual duplicates...",
+            Processed = totalComparisons,
+            Total = totalComparisons,
+            Summary = $"Perceptual duplicate groups: {perceptualCount}"
+        });
 
         // --- Phase 3: Save results ---
-        context.Status.Report("Saving results...");
-        context.Progress.Report(90);
+        context.State.Report(new JobState
+        {
+            Phase = "Saving duplicate groups..."
+        });
 
         if (newGroups.Count > 0)
         {
@@ -186,9 +237,15 @@ public class FindDuplicatesJob : IJob
             await db.SaveChangesAsync(context.CancellationToken);
         }
 
-        context.Progress.Report(100);
         var totalEntries = newGroups.Sum(g => g.Entries.Count);
-        context.Status.Report($"Done — found {newGroups.Count} duplicate groups ({totalEntries} posts)");
+        context.State.Report(new JobState
+        {
+            Phase = "Completed",
+            Processed = totalEntries,
+            Total = totalEntries,
+            Succeeded = newGroups.Count,
+            Summary = $"Found {newGroups.Count} duplicate groups ({totalEntries} posts)."
+        });
         _logger.LogInformation("Duplicate scan complete: {Groups} groups, {Entries} total posts",
             newGroups.Count, totalEntries);
     }

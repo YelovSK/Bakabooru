@@ -1,4 +1,4 @@
-import { Component, input, computed } from '@angular/core';
+import { ChangeDetectionStrategy, Component, input, computed } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterModule } from '@angular/router';
 
@@ -11,7 +11,8 @@ export type ButtonType = 'button' | 'submit' | 'reset';
   standalone: true,
   imports: [CommonModule, RouterModule],
   templateUrl: './button.component.html',
-  styleUrl: './button.component.css'
+  styleUrl: './button.component.css',
+  changeDetection: ChangeDetectionStrategy.OnPush
 })
 export class ButtonComponent {
   variant = input<ButtonVariant>('primary');

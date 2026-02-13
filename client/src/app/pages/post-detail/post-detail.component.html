@@ -34,14 +34,26 @@
                         <span class="text-text-muted">Library</span>
                         <span class="text-text-primary font-medium">#{{ pd.libraryId }}</span>
 
+                        <span class="text-text-muted">File</span>
+                        <span
+                            class="text-text-primary font-medium break-all"
+                            [appTooltip]="pd.relativePath"
+                            tooltipPosition="right">
+                            {{ pd.relativePath | fileName }}
+                        </span>
+
                         <span class="text-text-muted">Created</span>
                         <span class="text-text-primary font-medium">{{ pd.importDate | date:'medium' }}</span>
+
+                        <span class="text-text-muted">Size</span>
+                        <span class="text-text-primary font-medium">{{ pd.sizeBytes | fileSize }}</span>
 
                         <span class="text-text-muted">Dimensions</span>
                         <span class="text-text-primary font-medium">{{ pd.width }} x {{ pd.height }}</span>
 
                         <span class="text-text-muted">Type</span>
                         <span class="text-text-primary font-medium">{{ pd.contentType }}</span>
+
                     </div>
 
                     @if (!editService.isEditing()) {
@@ -154,26 +166,25 @@
             <span class="text-sm">{{ sidebarCollapsed() ? '→' : '←' }}</span>
         </button>
 
-        <div class="w-[9999px] h-[9999px] max-w-full max-h-full flex justify-center items-center relative"
-             [style.aspect-ratio]="(pd.width > 0 && pd.height > 0) ? (pd.width + '/' + pd.height) : null">
-            @switch (getMediaType(pd.contentType)) {
-                @case ('image')
-                @case ('animation') {
-                <img [src]="environment.mediaBaseUrl + pd.thumbnailUrl"
-                     [appProgressiveImage]="environment.mediaBaseUrl + pd.contentUrl"
-                     [alt]="pd.id"
-                     class="max-w-full max-h-full object-contain"
-                     decoding="async"
-                     [attr.width]="pd.width > 0 ? pd.width : null"
-                     [attr.height]="pd.height > 0 ? pd.height : null"/>
-                }
-                @case ('video') {
-                <video [src]="environment.mediaBaseUrl + pd.contentUrl" (loadeddata)="imageLoading.set(false)"
-                       class="max-w-full max-h-full object-contain transition-opacity duration-200"
-                       controls [autoplay]="autoPlayVideos()" [muted]="startVideosMuted()" loop></video>
-                }
+        @switch (getMediaType(pd.contentType)) {
+            @case ('image')
+            @case ('animation') {
+            <img [src]="environment.mediaBaseUrl + pd.thumbnailUrl"
+                [appProgressiveImage]="environment.mediaBaseUrl + pd.contentUrl"
+                [alt]="pd.id"
+                class="h-full w-auto max-w-none transition-opacity duration-150"
+                [style.aspect-ratio]="pd.width + '/' + pd.height"
+                decoding="async"
+                [attr.width]="pd.width"
+                [attr.height]="pd.height"
+            />
             }
-        </div>
+            @case ('video') {
+            <video [src]="environment.mediaBaseUrl + pd.contentUrl" (loadeddata)="imageLoading.set(false)"
+                    class="max-w-full max-h-full object-contain transition-opacity duration-200"
+                    controls [autoplay]="autoPlayVideos()" [muted]="startVideosMuted()" loop></video>
+            }
+        }
     </div>
 </div>
 } @else {

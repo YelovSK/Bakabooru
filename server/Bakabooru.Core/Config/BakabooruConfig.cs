@@ -43,6 +43,7 @@ public class ProcessingConfig
     public bool RunScheduler { get; set; } = true;
     public int MetadataParallelism { get; set; } = 2;
     public int SimilarityParallelism { get; set; } = 2;
+    public int ThumbnailParallelism { get; set; } = 2;
 }
 
 public class IngestionConfig

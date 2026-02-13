@@ -1,4 +1,4 @@
-import { Component, input } from '@angular/core';
+import { ChangeDetectionStrategy, Component, input } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { NgControl } from '@angular/forms';
 
@@ -7,6 +7,7 @@ import { NgControl } from '@angular/forms';
   standalone: true,
   imports: [CommonModule],
   templateUrl: './form-errors.component.html',
+  changeDetection: ChangeDetectionStrategy.OnPush
 })
 export class FormErrorsComponent {
   control = input.required<NgControl | null>();

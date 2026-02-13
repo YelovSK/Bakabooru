@@ -110,7 +110,7 @@
                     </div>
                     <div class="flex justify-between items-center py-2 border-b border-white/5">
                         <span class="text-text-muted">Total Size</span>
-                        <span class="text-[0.95rem] font-semibold">{{ formatSize(lib.totalSizeBytes) }}</span>
+                        <span class="text-[0.95rem] font-semibold">{{ lib.totalSizeBytes | fileSize }}</span>
                     </div>
                     <div class="flex justify-between items-center py-2">
                         <span class="text-text-muted">Last Import</span>

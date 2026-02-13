@@ -12,19 +12,26 @@ public enum JobStatus
 public class JobInfo
 {
     public string Id { get; set; } = string.Empty;
+    public int ExecutionId { get; set; }
     public string Name { get; set; } = string.Empty;
     public JobStatus Status { get; set; }
-    public double Progress { get; set; }
-    public string Message { get; set; } = string.Empty;
+    public JobState State { get; set; } = new();
     public DateTime? StartTime { get; set; }
     public DateTime? EndTime { get; set; }
+}
+
+public class JobDefinition
+{
+    public string Name { get; set; } = string.Empty;
+    public string Description { get; set; } = string.Empty;
+    public bool SupportsAllMode { get; set; }
 }
 
 public interface IJobService
 {
     IEnumerable<JobInfo> GetActiveJobs();
     Task<(List<Entities.JobExecution> Items, int Total)> GetJobHistoryAsync(int pageSize = 20, int page = 1, CancellationToken cancellationToken = default);
-    IEnumerable<string> GetAvailableJobs();
+    IEnumerable<JobDefinition> GetAvailableJobs();
     Task<string> StartJobAsync(string jobName, CancellationToken cancellationToken);
     Task<string> StartJobAsync(string jobName, CancellationToken cancellationToken, Action<IJob>? configure, JobMode mode = JobMode.Missing);
     Task<string> StartJobAsync(string jobName, Func<CancellationToken, Task> action);

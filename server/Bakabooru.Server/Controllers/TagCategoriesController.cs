@@ -33,7 +33,7 @@ public class TagCategoriesController : ControllerBase
     [HttpPut("{id}")]
     public async Task<IActionResult> UpdateCategory(int id, [FromBody] UpdateTagCategoryDto dto)
     {
-        return await _tagCategoryService.UpdateCategoryAsync(id, dto).ToHttpResult();
+        return await _tagCategoryService.UpdateCategoryAsync(id, dto).ToHttpResult(_ => NoContent());
     }
 
     [HttpDelete("{id}")]

@@ -6,6 +6,7 @@ public class PostDto
     public int LibraryId { get; set; }
     public string RelativePath { get; set; } = string.Empty;
     public string ContentHash { get; set; } = string.Empty;
+    public long SizeBytes { get; set; }
     public int Width { get; set; }
     public int Height { get; set; }
     public string ContentType { get; set; } = string.Empty;
@@ -29,4 +30,10 @@ public class PostsAroundDto
 {
     public PostDto? Prev { get; set; }
     public PostDto? Next { get; set; }
+}
+
+public class UpdatePostMetadataDto
+{
+    public List<string>? Tags { get; set; }
+    public List<string>? Sources { get; set; }
 }

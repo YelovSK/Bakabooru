@@ -37,11 +37,13 @@ public class JobsController : ControllerBase
                     .First(),
                 StringComparer.OrdinalIgnoreCase);
 
-        var result = available.Select(name => new JobViewDto
+        var result = available.Select(job => new JobViewDto
         {
-            Name = name,
-            IsRunning = active.TryGetValue(name, out var info) && info.Status == JobStatus.Running,
-            ActiveJobInfo = active.TryGetValue(name, out var activeInfo) ? activeInfo : null
+            Name = job.Name,
+            Description = job.Description,
+            SupportsAllMode = job.SupportsAllMode,
+            IsRunning = active.TryGetValue(job.Name, out var info) && info.Status == JobStatus.Running,
+            ActiveJobInfo = active.TryGetValue(job.Name, out var activeInfo) ? activeInfo : null
         });
 
         return Ok(result);
@@ -67,6 +69,10 @@ public class JobsController : ControllerBase
         {
             return NotFound(ex.Message);
         }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(ex.Message);
+        }
     }
 
     [HttpPost("{id}/cancel")]
@@ -87,6 +93,10 @@ public class JobsController : ControllerBase
         CancellationToken cancellationToken = default)
     {
         var (items, total) = await _jobService.GetJobHistoryAsync(pageSize, page, cancellationToken);
+        var activeByExecutionId = _jobService.GetActiveJobs()
+            .Where(j => j.ExecutionId > 0)
+            .ToDictionary(j => j.ExecutionId, j => j.State);
+
         return Ok(new JobHistoryResponseDto
         {
             Items = items.Select(i => new JobExecutionDto
@@ -96,7 +106,10 @@ public class JobsController : ControllerBase
                 Status = i.Status,
                 StartTime = i.StartTime,
                 EndTime = i.EndTime,
-                ErrorMessage = i.ErrorMessage
+                ErrorMessage = i.ErrorMessage,
+                State = activeByExecutionId.TryGetValue(i.Id, out var activeState)
+                    ? activeState
+                    : JobStateSerialization.Deserialize(i.ResultData)
             }).ToList(),
             Total = total
         });
@@ -111,6 +124,6 @@ public class JobsController : ControllerBase
     [HttpPut("schedules/{id}")]
     public async Task<IActionResult> UpdateSchedule(int id, [FromBody] ScheduledJobUpdateDto update)
     {
-        return await _jobScheduleService.UpdateScheduleAsync(id, update).ToHttpResult();
+        return await _jobScheduleService.UpdateScheduleAsync(id, update).ToHttpResult(_ => NoContent());
     }
 }

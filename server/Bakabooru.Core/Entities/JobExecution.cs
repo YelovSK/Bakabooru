@@ -10,5 +10,5 @@ public class JobExecution
     public DateTime StartTime { get; set; }
     public DateTime? EndTime { get; set; }
     public string? ErrorMessage { get; set; }
-    public string? ResultData { get; set; } // JSON or simple string for result details
+    public string? ResultData { get; set; } // Serialized JobState snapshot
 }

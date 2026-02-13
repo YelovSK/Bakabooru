@@ -1,4 +1,4 @@
-import { Component, inject, HostListener } from '@angular/core';
+import { ChangeDetectionStrategy, Component, inject, HostListener } from '@angular/core';
 import { CommonModule } from '@angular/common';
 
 import { ConfirmService } from '@services/confirm.service';
@@ -9,7 +9,8 @@ import { ButtonComponent } from '@shared/components/button/button.component';
   standalone: true,
   imports: [CommonModule, ButtonComponent],
   templateUrl: './confirm-dialog.component.html',
-  styleUrl: './confirm-dialog.component.css'
+  styleUrl: './confirm-dialog.component.css',
+  changeDetection: ChangeDetectionStrategy.OnPush
 })
 export class ConfirmDialogComponent {
   confirmService = inject(ConfirmService);
