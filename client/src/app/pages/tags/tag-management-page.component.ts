@@ -12,6 +12,7 @@ import { SearchInputComponent } from '@shared/components/search-input/search-inp
 import { FormDropdownComponent, FormDropdownOption } from '@shared/components/dropdown/form-dropdown.component';
 import { DataTableColumn, DataTableComponent } from '@shared/components/data-table/data-table.component';
 import { ModalComponent } from '@shared/components/modal/modal.component';
+import { ConfirmService } from '@services/confirm.service';
 
 type EditTagModel = {
   id: number;
@@ -48,6 +49,7 @@ type EditCategoryModel = {
 export class TagManagementPageComponent implements OnInit {
   private readonly api = inject(BakabooruService);
   private readonly toast = inject(ToastService);
+  private readonly confirmService = inject(ConfirmService);
 
   tags = signal<ManagedTag[]>([]);
   categories = signal<ManagedTagCategory[]>([]);
@@ -243,16 +245,24 @@ export class TagManagementPageComponent implements OnInit {
   deleteTagFromEdit(): void {
     const model = this.editTag();
     if (!model) return;
-    if (!confirm(`Delete tag "${model.name}"? This removes it from all posts.`)) return;
 
-    this.api.deleteManagedTag(model.id).subscribe({
-      next: () => {
-        this.toast.success('Tag deleted');
-        this.editTag.set(null);
-        this.loadTags();
-        this.loadCategories();
-      },
-      error: err => this.toast.error(err?.error || 'Failed to delete tag'),
+    this.confirmService.confirm({
+      title: 'Delete Tag',
+      message: `Delete tag "${model.name}"? This removes it from all posts.`,
+      confirmText: 'Delete',
+      variant: 'danger',
+    }).subscribe(confirmed => {
+      if (!confirmed) return;
+
+      this.api.deleteManagedTag(model.id).subscribe({
+        next: () => {
+          this.toast.success('Tag deleted');
+          this.editTag.set(null);
+          this.loadTags();
+          this.loadCategories();
+        },
+        error: err => this.toast.error(err?.error || 'Failed to delete tag'),
+      });
     });
   }
 
@@ -326,16 +336,24 @@ export class TagManagementPageComponent implements OnInit {
   deleteCategoryFromEdit(): void {
     const model = this.editCategory();
     if (!model) return;
-    if (!confirm(`Delete category "${model.name}"? Tags in it become uncategorized.`)) return;
 
-    this.api.deleteTagCategory(model.id).subscribe({
-      next: () => {
-        this.toast.success('Category deleted');
-        this.editCategory.set(null);
-        this.loadCategories();
-        this.loadTags();
-      },
-      error: err => this.toast.error(err?.error || 'Failed to delete category'),
+    this.confirmService.confirm({
+      title: 'Delete Category',
+      message: `Delete category "${model.name}"? Tags in it become uncategorized.`,
+      confirmText: 'Delete',
+      variant: 'danger',
+    }).subscribe(confirmed => {
+      if (!confirmed) return;
+
+      this.api.deleteTagCategory(model.id).subscribe({
+        next: () => {
+          this.toast.success('Category deleted');
+          this.editCategory.set(null);
+          this.loadCategories();
+          this.loadTags();
+        },
+        error: err => this.toast.error(err?.error || 'Failed to delete category'),
+      });
     });
   }
 

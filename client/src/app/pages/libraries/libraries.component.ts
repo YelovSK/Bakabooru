@@ -8,6 +8,7 @@ import { BakabooruService } from '@services/api/bakabooru/bakabooru.service';
 import { Library } from '@services/api/bakabooru/models';
 import { ButtonComponent } from '@shared/components/button/button.component';
 import { ToastService } from '@services/toast.service';
+import { ConfirmService } from '@services/confirm.service';
 import { FileSizePipe } from '@shared/pipes/file-size.pipe';
 
 @Component({
@@ -21,6 +22,7 @@ import { FileSizePipe } from '@shared/pipes/file-size.pipe';
 export class LibrariesComponent {
     private readonly bakabooru = inject(BakabooruService);
     private readonly toast = inject(ToastService);
+    private readonly confirmService = inject(ConfirmService);
 
     newLibraryName = signal('');
     newLibraryPath = signal('');
@@ -69,19 +71,26 @@ export class LibrariesComponent {
     }
 
     deleteLibrary(lib: Library) {
-        if (!confirm(`Delete library "${lib.name}"? This removes the library record, not your files.`)) return;
+        this.confirmService.confirm({
+            title: 'Delete Library',
+            message: `Delete library "${lib.name}"? This removes the library record, not your files.`,
+            confirmText: 'Delete',
+            variant: 'danger',
+        }).subscribe(confirmed => {
+            if (!confirmed) return;
 
-        this.isLoading.set(true);
-        this.bakabooru.deleteLibrary(lib.id).subscribe({
-            next: () => {
-                this.toast.success(`Library "${lib.name}" deleted`);
-                this.refreshTrigger.update(v => v + 1);
-                this.isLoading.set(false);
-            },
-            error: (err) => {
-                this.toast.error(err.error?.description || 'Failed to delete library');
-                this.isLoading.set(false);
-            }
+            this.isLoading.set(true);
+            this.bakabooru.deleteLibrary(lib.id).subscribe({
+                next: () => {
+                    this.toast.success(`Library "${lib.name}" deleted`);
+                    this.refreshTrigger.update(v => v + 1);
+                    this.isLoading.set(false);
+                },
+                error: (err) => {
+                    this.toast.error(err.error?.description || 'Failed to delete library');
+                    this.isLoading.set(false);
+                }
+            });
         });
     }
 

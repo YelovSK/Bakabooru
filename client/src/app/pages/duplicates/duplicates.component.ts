@@ -1,18 +1,21 @@
 import { ChangeDetectionStrategy, Component, OnInit, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { RouterLink } from '@angular/router';
 import { DuplicateService, DuplicateGroup, DuplicatePost } from '../../services/api/duplicate.service';
 import { environment } from '../../../environments/environment';
 import { FileNamePipe } from '@shared/pipes/file-name.pipe';
 import { FileSizePipe } from '@shared/pipes/file-size.pipe';
 import { getFileNameFromPath } from '@shared/utils/utils';
+import { ConfirmService } from '@services/confirm.service';
+import { ToastService } from '@services/toast.service';
 
 @Component({
   selector: 'app-duplicates-page',
   standalone: true,
-  imports: [CommonModule, FileNamePipe, FileSizePipe],
+  imports: [CommonModule, RouterLink, FileNamePipe, FileSizePipe],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
-    <div class="container mx-auto p-6">
+    <div class="mx-auto max-w-7xl p-4 md:p-6">
       <h1 class="text-3xl font-bold mb-2 text-terminal-green">Duplicate Detection</h1>
       <p class="text-gray-400 mb-6">Review and resolve duplicate posts. Run "Find Duplicates" from the Jobs page to detect new groups.</p>
 
@@ -52,7 +55,7 @@ import { getFileNameFromPath } from '@shared/utils/utils';
       <div *ngIf="loading()" class="text-center py-16 text-gray-400">Loading...</div>
 
       <!-- Duplicate Groups -->
-      <div *ngFor="let group of groups(); trackBy: trackGroup" class="bg-gray-900 border border-gray-700 rounded-lg p-6 mb-6 shadow-lg">
+      <div *ngFor="let group of groups(); trackBy: trackGroup" class="bg-gray-900 border border-gray-700 rounded-lg p-4 md:p-5 mb-6 shadow-lg">
         <!-- Group Header -->
         <div class="flex justify-between items-center mb-4">
           <div class="flex items-center gap-3">
@@ -75,28 +78,35 @@ import { getFileNameFromPath } from '@shared/utils/utils';
         </div>
 
         <!-- Thumbnails Grid -->
-        <div class="grid gap-4" [style.gridTemplateColumns]="'repeat(' + Math.min(group.posts.length, 4) + ', 1fr)'">
+        <div class="flex flex-wrap gap-3">
           <div *ngFor="let post of group.posts; trackBy: trackPost"
-               class="relative group/card bg-gray-800 rounded-lg overflow-hidden border border-gray-700 hover:border-terminal-green transition-colors cursor-pointer"
-               (click)="keepOne(group, post)">
+               class="relative w-36 sm:w-40 md:w-44 group/card bg-gray-800 rounded-lg overflow-hidden border border-gray-700 hover:border-terminal-green transition-colors"
+          >
             <!-- Thumbnail -->
-            <div class="aspect-square overflow-hidden">
+            <div
+              class="relative aspect-square overflow-hidden cursor-pointer"
+              role="button"
+              tabindex="0"
+              (click)="keepOne(group, post)"
+              (keydown.enter)="keepOne(group, post)"
+              (keydown.space)="keepOne(group, post); $event.preventDefault()">
               <img [src]="mediaBase + post.thumbnailUrl" [alt]="post.relativePath"
                    class="w-full h-full object-cover" loading="lazy"
                    (error)="onImageError($event)">
+              <!-- Keep this overlay on hover -->
+              <div class="absolute inset-0 bg-black/60 opacity-0 group-hover/card:opacity-100 transition-opacity flex items-center justify-center">
+                <span class="bg-terminal-green text-white font-bold px-4 py-2 rounded text-sm">Keep This</span>
+              </div>
             </div>
+
             <!-- Info overlay -->
-            <div class="p-3">
+            <a [routerLink]="['/post', post.id]" class="block p-2 hover:bg-gray-700/50 transition-colors">
               <div class="text-xs text-gray-400 truncate mb-1" [title]="post.relativePath">{{ post.relativePath | fileName }}</div>
               <div class="flex justify-between text-xs text-gray-500">
                 <span>{{ post.width }}×{{ post.height }}</span>
                 <span>{{ post.sizeBytes | fileSize }}</span>
               </div>
-            </div>
-            <!-- Keep this overlay on hover -->
-            <div class="absolute inset-0 bg-black/60 opacity-0 group-hover/card:opacity-100 transition-opacity flex items-center justify-center">
-              <span class="bg-terminal-green text-black font-bold px-4 py-2 rounded text-sm">Keep This</span>
-            </div>
+            </a>
           </div>
         </div>
       </div>
@@ -111,9 +121,12 @@ export class DuplicatesPageComponent implements OnInit {
   perceptualCount = signal(0);
 
   mediaBase = environment.mediaBaseUrl;
-  Math = Math;
 
-  constructor(private duplicateService: DuplicateService) { }
+  constructor(
+    private duplicateService: DuplicateService,
+    private confirmService: ConfirmService,
+    private toast: ToastService,
+  ) { }
 
   ngOnInit() {
     this.loadGroups();
@@ -139,26 +152,39 @@ export class DuplicatesPageComponent implements OnInit {
   }
 
   keepOne(group: DuplicateGroup, post: DuplicatePost) {
-    if (!confirm(`Keep "${getFileNameFromPath(post.relativePath)}" and remove the other ${group.posts.length - 1} post(s) from the booru?`))
-      return;
+    this.confirmService.confirm({
+      title: 'Keep One Post',
+      message: `Keep "${getFileNameFromPath(post.relativePath)}" and remove the other ${group.posts.length - 1} post(s) from the booru?`,
+      confirmText: 'Keep This',
+      variant: 'danger',
+    }).subscribe(confirmed => {
+      if (!confirmed) return;
 
-    this.duplicateService.keepOne(group.id, post.id).subscribe(() => {
-      this.groups.update(groups => groups.filter(g => g.id !== group.id));
-      this.recountTypes();
+      this.duplicateService.keepOne(group.id, post.id).subscribe(() => {
+        this.groups.update(groups => groups.filter(g => g.id !== group.id));
+        this.recountTypes();
+      });
     });
   }
 
   resolveAllExact() {
     const count = this.exactCount();
-    if (!confirm(`Resolve all ${count} exact duplicate groups? This keeps the oldest post and removes the others from the booru.`))
-      return;
 
-    this.duplicateService.resolveAllExact().subscribe({
-      next: (result) => {
-        this.loadGroups();
-        alert(`Resolved ${result.resolved} exact duplicate groups.`);
-      },
-      error: (err) => alert('Failed: ' + err.message)
+    this.confirmService.confirm({
+      title: 'Resolve Exact Duplicates',
+      message: `Resolve all ${count} exact duplicate groups? This keeps the oldest post and removes the others from the booru.`,
+      confirmText: 'Resolve All',
+      variant: 'danger',
+    }).subscribe(confirmed => {
+      if (!confirmed) return;
+
+      this.duplicateService.resolveAllExact().subscribe({
+        next: (result) => {
+          this.loadGroups();
+          this.toast.success(`Resolved ${result.resolved} exact duplicate groups.`);
+        },
+        error: (err) => this.toast.error('Failed: ' + (err?.message || 'Unknown error'))
+      });
     });
   }
 

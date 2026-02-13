@@ -47,6 +47,7 @@ public static class ServiceCollectionExtensions
 
         services.AddSingleton<IMediaSource, FileSystemMediaSource>();
         services.AddTransient<IScannerService, RecursiveScanner>();
+        services.AddTransient<FolderTaggingService>();
 
         // Jobs
         services.AddTransient<IJob, Jobs.ScanAllLibrariesJob>();
@@ -55,6 +56,7 @@ public static class ServiceCollectionExtensions
         services.AddTransient<IJob, Jobs.CleanupOrphanedThumbnailsJob>();
         services.AddTransient<IJob, Jobs.ExtractMetadataJob>();
         services.AddTransient<IJob, Jobs.ComputeSimilarityJob>();
+        services.AddTransient<IJob, Jobs.ApplyFolderTagsJob>();
 
         return services;
     }

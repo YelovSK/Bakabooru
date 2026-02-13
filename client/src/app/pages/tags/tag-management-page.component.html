@@ -17,25 +17,24 @@
             <app-button (click)="openCreateTagModal()">New Tag</app-button>
           </div>
 
+          <div class="mb-3 text-sm text-text-muted">Showing {{ tags().length }} of {{ tagsTotal() }} tags</div>
           @if (tagsLoading()) {
-            <div class="py-6 text-sm text-text-muted">Loading tags...</div>
-          } @else {
-            <div class="mb-3 text-sm text-text-muted">Showing {{ tags().length }} of {{ tagsTotal() }} tags</div>
-            <app-data-table
-              [columns]="tagColumns"
-              [rows]="tags()"
-              [trackBy]="trackTagRow"
-              (rowClick)="openEditTagModal($event)">
-            </app-data-table>
-
-            <div class="mt-4 flex justify-center">
-              <app-paginator
-                [currentPage]="tagsPage()"
-                [totalPages]="tagsTotalPages()"
-                (pageChange)="onTagsPageChange($event)">
-              </app-paginator>
-            </div>
+            <div class="mb-3 text-sm text-text-muted">Loading tags...</div>
           }
+          <app-data-table
+            [columns]="tagColumns"
+            [rows]="tags()"
+            [trackBy]="trackTagRow"
+            (rowClick)="openEditTagModal($event)">
+          </app-data-table>
+
+          <div class="mt-4 flex justify-center">
+            <app-paginator
+              [currentPage]="tagsPage()"
+              [totalPages]="tagsTotalPages()"
+              (pageChange)="onTagsPageChange($event)">
+            </app-paginator>
+          </div>
         </section>
       </ng-template>
     </app-tab>

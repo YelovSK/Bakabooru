@@ -1,6 +1,6 @@
 import { ChangeDetectionStrategy, Component, DestroyRef, inject, input, output, signal } from '@angular/core';
 import { toObservable, takeUntilDestroyed } from '@angular/core/rxjs-interop';
-import { debounceTime, distinctUntilChanged } from 'rxjs';
+import { debounceTime, distinctUntilChanged, skip } from 'rxjs';
 
 @Component({
   selector: 'app-search-input',
@@ -26,6 +26,8 @@ export class SearchInputComponent {
 
     toObservable(this.query)
       .pipe(
+        // Do not emit on initial render; parent pages usually perform an explicit first load.
+        skip(1),
         debounceTime(this.debounceMs()),
         distinctUntilChanged(),
         takeUntilDestroyed(this.destroyRef),
