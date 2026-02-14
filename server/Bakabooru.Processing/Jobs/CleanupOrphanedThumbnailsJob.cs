@@ -34,6 +34,7 @@ public class CleanupOrphanedThumbnailsJob : IJob
         }
     }
 
+    public int DisplayOrder => 60;
     public string Name => "Cleanup Orphaned Thumbnails";
     public string Description => "Removes thumbnail files that are not referenced by any post.";
     public bool SupportsAllMode => false;

@@ -23,7 +23,9 @@ public class SimilarityStep : IMediaProcessingStep
 
         if (SupportedMedia.IsImage(extension))
         {
-            context.PerceptualHash = await _similarityService.ComputeHashAsync(context.FilePath, cancellationToken);
+            var hashes = await _similarityService.ComputeHashesAsync(context.FilePath, cancellationToken);
+            context.PerceptualDHash = hashes?.DHash;
+            context.PerceptualPHash = hashes?.PHash;
         }
     }
 }

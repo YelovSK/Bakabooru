@@ -3,20 +3,24 @@ import { CommonModule } from '@angular/common';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { catchError, interval } from 'rxjs';
 import { FormsModule } from '@angular/forms';
-import dayjs from 'dayjs/esm';
 
 import { BakabooruService } from '../../services/api/bakabooru/bakabooru.service';
-import { JobExecution, JobMode, JobState, JobStatus, JobViewModel, ScheduledJob } from '../../services/api/bakabooru/models';
+import { CronPreview, JobExecution, JobMode, JobState, JobStatus, JobViewModel, ScheduledJob } from '../../services/api/bakabooru/models';
 import { ButtonComponent } from '../../shared/components/button/button.component';
+import { CollapsibleComponent } from '../../shared/components/collapsible/collapsible.component';
+import { FormInputComponent } from '../../shared/components/form-input/form-input.component';
 import { PaginatorComponent } from '../../shared/components/paginator/paginator.component';
 import { ProgressBarComponent } from '../../shared/components/progress-bar/progress-bar.component';
+import { TooltipDirective } from '../../shared/directives';
+import { DateTimePipe } from '../../shared/pipes/date-time.pipe';
+import { ElapsedDurationPipe } from '../../shared/pipes/elapsed-duration.pipe';
+import { RelativeDurationPipe } from '../../shared/pipes/relative-duration.pipe';
 import { ToastService } from '../../services/toast.service';
 import { ConfirmService } from '../../services/confirm.service';
 
 const LIVE_JOBS_POLL_MS = 2000;
 const CLOCK_TICK_MS = 1000;
 const HISTORY_PAGE_SIZE = 20;
-const DATE_TIME_FORMAT = 'YYYY-MM-DD HH:mm:ss';
 
 const JOB_STATUS_LABELS: Record<JobStatus, string> = {
   [JobStatus.Idle]: 'Idle',
@@ -29,11 +33,14 @@ const JOB_STATUS_LABELS: Record<JobStatus, string> = {
 @Component({
   selector: 'app-jobs-page',
   standalone: true,
-  imports: [CommonModule, FormsModule, ButtonComponent, PaginatorComponent, ProgressBarComponent],
+  imports: [CommonModule, FormsModule, ButtonComponent, CollapsibleComponent, FormInputComponent, PaginatorComponent, ProgressBarComponent, TooltipDirective, DateTimePipe, ElapsedDurationPipe, RelativeDurationPipe],
   templateUrl: './jobs.component.html',
   changeDetection: ChangeDetectionStrategy.OnPush
 })
 export class JobsPageComponent {
+  private static readonly CRON_PREVIEW_DEBOUNCE_MS = 350;
+  private static readonly CRON_PREVIEW_COUNT = 3;
+
   private readonly bakabooru = inject(BakabooruService);
   private readonly toast = inject(ToastService);
   private readonly confirmService = inject(ConfirmService);
@@ -42,15 +49,27 @@ export class JobsPageComponent {
   readonly jobStatus = JobStatus;
   readonly jobs = signal<JobViewModel[]>([]);
   readonly schedules = signal<ScheduledJob[]>([]);
+  readonly cronPreviews = signal<Record<number, CronPreview>>({});
   readonly history = signal<JobExecution[]>([]);
   readonly now = signal(Date.now());
   readonly historyPage = signal(1);
   readonly historyTotal = signal(0);
   readonly historyTotalPages = computed(() => Math.max(1, Math.ceil(this.historyTotal() / HISTORY_PAGE_SIZE)));
+  cronHelpExpanded = false;
+  readonly cronExamples = [
+    'Every 6 hours: 0 */6 * * *',
+    'Every day at 03:00 UTC: 0 3 * * *',
+    'Every Sunday at 03:00 UTC: 0 3 * * 0',
+    'Every 15 minutes: */15 * * * *'
+  ];
+
   private lastRunningExecutionIds = new Set<number>();
+  private cronPreviewTimers = new Map<number, ReturnType<typeof setTimeout>>();
+  private latestCronExpressions = new Map<number, string>();
 
   constructor() {
     this.refreshData();
+    this.destroyRef.onDestroy(() => this.clearCronPreviewTimers());
 
     interval(LIVE_JOBS_POLL_MS)
       .pipe(takeUntilDestroyed(this.destroyRef))
@@ -63,7 +82,15 @@ export class JobsPageComponent {
 
   refreshData() {
     this.refreshLiveJobs(false);
-    this.bakabooru.getJobSchedules().subscribe(data => this.schedules.set(data));
+    this.bakabooru.getJobSchedules().subscribe(data => {
+      this.schedules.set(data);
+      this.cronPreviews.set({});
+      this.clearCronPreviewTimers();
+
+      for (const schedule of data) {
+        this.queueCronPreview(schedule.id, schedule.cronExpression, 0);
+      }
+    });
     this.loadHistory();
   }
 
@@ -101,6 +128,12 @@ export class JobsPageComponent {
   }
 
   updateSchedule(schedule: ScheduledJob) {
+    const preview = this.cronPreviews()[schedule.id];
+    if (preview && !preview.isValid) {
+      this.toast.error(preview.error ?? 'Invalid cron expression.');
+      return;
+    }
+
     this.bakabooru.updateJobSchedule(schedule.id, schedule).subscribe({
       next: () => {
         this.toast.success('Schedule updated');
@@ -110,35 +143,16 @@ export class JobsPageComponent {
     });
   }
 
+  onCronExpressionChange(schedule: ScheduledJob): void {
+    this.queueCronPreview(schedule.id, schedule.cronExpression);
+  }
+
+  getCronPreview(scheduleId: number): CronPreview | undefined {
+    return this.cronPreviews()[scheduleId];
+  }
+
   getStatusText(status: JobStatus): string {
     return JOB_STATUS_LABELS[status] ?? 'Unknown';
-  }
-
-  formatDateTime(value?: string | null): string {
-    if (!value) return '-';
-    const parsed = dayjs(value);
-    return parsed.isValid() ? parsed.format(DATE_TIME_FORMAT) : '-';
-  }
-
-  getDuration(start: string, end: string): string {
-    const diff = Math.max(0, dayjs(end).diff(dayjs(start), 'second'));
-
-    if (diff < 60) return diff + 's';
-    const mins = Math.floor(diff / 60);
-    const secs = diff % 60;
-    return `${mins}m ${secs}s`;
-  }
-
-  getHistoryDuration(run: JobExecution): string {
-    if (run.endTime) {
-      return this.getDuration(run.startTime, run.endTime);
-    }
-
-    if (run.status === JobStatus.Running) {
-      return this.getDuration(run.startTime, dayjs(this.now()).toISOString());
-    }
-
-    return '-';
   }
 
   getProgressPercent(state?: JobState): number {
@@ -297,4 +311,62 @@ export class JobsPageComponent {
 
     return false;
   }
+
+  private queueCronPreview(scheduleId: number, expression: string, delayMs = JobsPageComponent.CRON_PREVIEW_DEBOUNCE_MS): void {
+    const normalized = expression.trim();
+    this.latestCronExpressions.set(scheduleId, normalized);
+
+    if (this.cronPreviewTimers.has(scheduleId)) {
+      clearTimeout(this.cronPreviewTimers.get(scheduleId)!);
+    }
+
+    if (!normalized) {
+      this.updateCronPreview(scheduleId, {
+        isValid: false,
+        error: 'Cron expression is required.',
+        nextRuns: []
+      });
+      return;
+    }
+
+    const timer = setTimeout(() => {
+      this.bakabooru.previewCronExpression(normalized, JobsPageComponent.CRON_PREVIEW_COUNT).subscribe({
+        next: preview => {
+          if (this.latestCronExpressions.get(scheduleId) !== normalized) {
+            return;
+          }
+
+          this.updateCronPreview(scheduleId, preview);
+        },
+        error: () => {
+          if (this.latestCronExpressions.get(scheduleId) !== normalized) {
+            return;
+          }
+
+          this.updateCronPreview(scheduleId, {
+            isValid: false,
+            error: 'Failed to validate cron expression.',
+            nextRuns: []
+          });
+        }
+      });
+    }, delayMs);
+
+    this.cronPreviewTimers.set(scheduleId, timer);
+  }
+
+  private updateCronPreview(scheduleId: number, preview: CronPreview): void {
+    this.cronPreviews.update(current => ({
+      ...current,
+      [scheduleId]: preview
+    }));
+  }
+
+  private clearCronPreviewTimers(): void {
+    for (const timer of this.cronPreviewTimers.values()) {
+      clearTimeout(timer);
+    }
+    this.cronPreviewTimers.clear();
+  }
+
 }

@@ -16,7 +16,11 @@ public class Post
     [MaxLength(64)]
     public string ContentHash { get; set; } = string.Empty;
     
+    /// <summary>Perceptual difference hash (dHash).</summary>
     public ulong? PerceptualHash { get; set; }
+
+    /// <summary>Perceptual frequency hash (pHash).</summary>
+    public ulong? PerceptualHashP { get; set; }
     
     public long SizeBytes { get; set; }
     public int Width { get; set; }

@@ -33,7 +33,8 @@ public class JobService : IJobService
     public IEnumerable<JobDefinition> GetAvailableJobs()
     {
         return _registeredJobs.Values
-            .OrderBy(j => j.Name, StringComparer.OrdinalIgnoreCase)
+            .OrderBy(j => j.DisplayOrder)
+            .ThenBy(j => j.Name, StringComparer.OrdinalIgnoreCase)
             .Select(j => new JobDefinition
             {
                 Name = j.Name,

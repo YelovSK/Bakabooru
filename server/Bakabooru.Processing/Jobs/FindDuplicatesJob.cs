@@ -10,14 +10,21 @@ namespace Bakabooru.Processing.Jobs;
 
 public class FindDuplicatesJob : IJob
 {
+    private sealed record HashPost(int Id, ulong? DHash, ulong? PHash);
+
     private readonly IServiceScopeFactory _scopeFactory;
     private readonly ILogger<FindDuplicatesJob> _logger;
 
     /// <summary>
-    /// Maximum hamming distance (out of 64 bits) to consider two images perceptually similar.
-    /// Default 3 bits ≈ ~95% similarity. Configurable from client.
+    /// Independent perceptual thresholds (out of 64 bits) for single-signal fallback.
     /// </summary>
-    public int PerceptualThreshold { get; set; } = 3;
+    public int DHashThreshold { get; set; } = 8;
+    public int PHashThreshold { get; set; } = 10;
+
+    /// <summary>
+    /// When both dHash and pHash are present, require at least this blended similarity.
+    /// </summary>
+    public int CombinedSimilarityThresholdPercent { get; set; } = 80;
 
     public FindDuplicatesJob(IServiceScopeFactory scopeFactory, ILogger<FindDuplicatesJob> logger)
     {
@@ -25,8 +32,9 @@ public class FindDuplicatesJob : IJob
         _logger = logger;
     }
 
+    public int DisplayOrder => 40;
     public string Name => "Find Duplicates";
-    public string Description => "Scans for exact (content hash) and perceptual (dHash) duplicate posts.";
+    public string Description => "Scans for exact (content hash) and perceptual (dHash+pHash) duplicate posts.";
     public bool SupportsAllMode => false;
 
     public async Task ExecuteAsync(JobContext context)
@@ -40,7 +48,7 @@ public class FindDuplicatesJob : IJob
         });
         var posts = await db.Posts
             .AsNoTracking()
-            .Select(p => new { p.Id, p.ContentHash, p.PerceptualHash })
+            .Select(p => new { p.Id, p.ContentHash, p.PerceptualHash, p.PerceptualHashP })
             .ToListAsync(context.CancellationToken);
         context.State.Report(new JobState
         {
@@ -106,7 +114,7 @@ public class FindDuplicatesJob : IJob
             Summary = $"Exact duplicate groups: {newGroups.Count}"
         });
 
-        // --- Phase 2: Perceptual duplicates (dHash hamming distance) ---
+        // --- Phase 2: Perceptual duplicates (independent dHash + pHash signals) ---
         context.State.Report(new JobState
         {
             Phase = "Finding perceptual duplicates...",
@@ -115,35 +123,24 @@ public class FindDuplicatesJob : IJob
         });
 
         var hashPosts = posts
-            .Where(p => p.PerceptualHash.HasValue && p.PerceptualHash.Value != 0)
-            .Select(p => new { p.Id, Hash = p.PerceptualHash!.Value })
+            .Where(p =>
+                (p.PerceptualHash.HasValue && p.PerceptualHash.Value != 0) ||
+                (p.PerceptualHashP.HasValue && p.PerceptualHashP.Value != 0))
+            .Select(p => new HashPost(p.Id, p.PerceptualHash, p.PerceptualHashP))
             .ToList();
 
         _logger.LogInformation("Comparing {Count} perceptual hashes", hashPosts.Count);
 
-        // Collect matching pairs, then merge into groups using union-find
-        var parent = new Dictionary<int, int>(); // union-find
-
-        int Find(int x)
-        {
-            if (!parent.ContainsKey(x)) parent[x] = x;
-            if (parent[x] != x) parent[x] = Find(parent[x]);
-            return parent[x];
-        }
-
-        void Union(int a, int b)
-        {
-            var ra = Find(a);
-            var rb = Find(b);
-            if (ra != rb) parent[ra] = rb;
-        }
-
-        // Also track the minimum similarity % for each merged group
-        var groupSimilarity = new Dictionary<int, int>(); // root -> min similarity %
+        // Collect pairwise matches in an adjacency graph.
+        // We later form strict groups where every member matches every other member (clique-like),
+        // which avoids chain-link false positives (A~B, B~C, but A !~ C).
+        var neighbors = new Dictionary<int, HashSet<int>>();
+        var pairSimilarity = new Dictionary<long, int>();
 
         int totalComparisons = hashPosts.Count * (hashPosts.Count - 1) / 2;
         int comparedSoFar = 0;
         int lastReportedPercent = 30;
+        int matchedPairs = 0;
 
         // Exclude post IDs that are already in exact duplicate groups
         var exactPostIds = new HashSet<int>(newGroups.SelectMany(g => g.Entries.Select(e => e.PostId)));
@@ -154,8 +151,7 @@ public class FindDuplicatesJob : IJob
             {
                 comparedSoFar++;
 
-                var distance = HammingDistance(hashPosts[i].Hash, hashPosts[j].Hash);
-                if (distance <= PerceptualThreshold)
+                if (TryComputeSimilarity(hashPosts[i], hashPosts[j], out var similarity))
                 {
                     var idA = hashPosts[i].Id;
                     var idB = hashPosts[j].Id;
@@ -164,14 +160,9 @@ public class FindDuplicatesJob : IJob
                     if (exactPostIds.Contains(idA) && exactPostIds.Contains(idB))
                         continue;
 
-                    Union(idA, idB);
-                    int similarity = (int)Math.Round((1.0 - (double)distance / 64) * 100);
-
-                    var root = Find(idA);
-                    if (!groupSimilarity.ContainsKey(root))
-                        groupSimilarity[root] = similarity;
-                    else
-                        groupSimilarity[root] = Math.Min(groupSimilarity[root], similarity);
+                    AddEdge(neighbors, idA, idB);
+                    pairSimilarity[GetPairKey(idA, idB)] = similarity;
+                    matchedPairs++;
                 }
 
                 // Progress reporting (30% -> 90%)
@@ -186,34 +177,47 @@ public class FindDuplicatesJob : IJob
                             Phase = "Comparing perceptual hashes...",
                             Processed = comparedSoFar,
                             Total = totalComparisons,
-                            Summary = $"Groups so far: {newGroups.Count}"
+                            Summary = $"Matched pairs so far: {matchedPairs}"
                         });
                     }
                 }
             }
         }
 
-        // Build perceptual groups from union-find
-        var perceptualGroups = hashPosts
-            .Where(p => parent.ContainsKey(p.Id))
-            .GroupBy(p => Find(p.Id))
-            .Where(g => g.Count() > 1);
-
         int perceptualCount = 0;
-        foreach (var group in perceptualGroups)
+        var remaining = new HashSet<int>(neighbors.Keys);
+        while (remaining.Count > 0)
         {
-            var root = group.Key;
-            var similarity = groupSimilarity.GetValueOrDefault(root, 100);
+            var seed = remaining
+                .OrderByDescending(id => GetRemainingDegree(id, remaining, neighbors))
+                .ThenBy(id => id)
+                .First();
+
+            var groupMembers = BuildCliqueGroup(seed, remaining, neighbors, pairSimilarity);
+
+            if (groupMembers.Count < 2)
+            {
+                remaining.Remove(seed);
+                continue;
+            }
+
+            var similarity = CalculateGroupSimilarity(groupMembers, pairSimilarity);
 
             var dupGroup = new DuplicateGroup
             {
                 Type = "perceptual",
                 SimilarityPercent = similarity,
                 DetectedDate = DateTime.UtcNow,
-                Entries = group.Select(p => new DuplicateGroupEntry { PostId = p.Id }).ToList()
+                Entries = groupMembers.Select(id => new DuplicateGroupEntry { PostId = id }).ToList()
             };
+
             newGroups.Add(dupGroup);
             perceptualCount++;
+
+            foreach (var member in groupMembers)
+            {
+                remaining.Remove(member);
+            }
         }
 
         _logger.LogInformation("Found {Count} perceptual duplicate groups", perceptualCount);
@@ -250,8 +254,178 @@ public class FindDuplicatesJob : IJob
             newGroups.Count, totalEntries);
     }
 
+    private bool TryComputeSimilarity(HashPost a, HashPost b, out int similarityPercent)
+    {
+        var dDistance = HammingDistanceNullable(a.DHash, b.DHash);
+        var pDistance = HammingDistanceNullable(a.PHash, b.PHash);
+
+        if (!dDistance.HasValue && !pDistance.HasValue)
+        {
+            similarityPercent = 0;
+            return false;
+        }
+
+        var dSimilarity = dDistance.HasValue ? 1.0 - (double)dDistance.Value / 64 : (double?)null;
+        var pSimilarity = pDistance.HasValue ? 1.0 - (double)pDistance.Value / 64 : (double?)null;
+
+        if (dSimilarity.HasValue && pSimilarity.HasValue)
+        {
+            // If both signals exist, require blended agreement to avoid one-sided false positives.
+            var combinedSimilarity = (dSimilarity.Value * 0.55) + (pSimilarity.Value * 0.45);
+            if (combinedSimilarity < (CombinedSimilarityThresholdPercent / 100.0))
+            {
+                similarityPercent = 0;
+                return false;
+            }
+
+            similarityPercent = (int)Math.Round(combinedSimilarity * 100);
+            return true;
+        }
+
+        // Single-signal fallback for partial/missing data.
+        if (dDistance.HasValue && dDistance.Value <= DHashThreshold)
+        {
+            similarityPercent = (int)Math.Round((1.0 - (double)dDistance.Value / 64) * 100);
+            return true;
+        }
+
+        if (pDistance.HasValue && pDistance.Value <= PHashThreshold)
+        {
+            similarityPercent = (int)Math.Round((1.0 - (double)pDistance.Value / 64) * 100);
+            return true;
+        }
+
+        similarityPercent = 0;
+        return false;
+    }
+
+    private static int? HammingDistanceNullable(ulong? a, ulong? b)
+    {
+        if (!a.HasValue || !b.HasValue || a.Value == 0 || b.Value == 0)
+        {
+            return null;
+        }
+
+        return HammingDistance(a.Value, b.Value);
+    }
+
     private static int HammingDistance(ulong a, ulong b)
     {
         return BitOperations.PopCount(a ^ b);
+    }
+
+    private static void AddEdge(Dictionary<int, HashSet<int>> neighbors, int a, int b)
+    {
+        if (!neighbors.TryGetValue(a, out var setA))
+        {
+            setA = new HashSet<int>();
+            neighbors[a] = setA;
+        }
+
+        if (!neighbors.TryGetValue(b, out var setB))
+        {
+            setB = new HashSet<int>();
+            neighbors[b] = setB;
+        }
+
+        setA.Add(b);
+        setB.Add(a);
+    }
+
+    private static long GetPairKey(int a, int b)
+    {
+        var min = Math.Min(a, b);
+        var max = Math.Max(a, b);
+        return ((long)min << 32) | (uint)max;
+    }
+
+    private static int GetRemainingDegree(int id, HashSet<int> remaining, Dictionary<int, HashSet<int>> neighbors)
+    {
+        if (!neighbors.TryGetValue(id, out var set))
+        {
+            return 0;
+        }
+
+        int degree = 0;
+        foreach (var neighbor in set)
+        {
+            if (remaining.Contains(neighbor))
+            {
+                degree++;
+            }
+        }
+
+        return degree;
+    }
+
+    private static List<int> BuildCliqueGroup(
+        int seed,
+        HashSet<int> remaining,
+        Dictionary<int, HashSet<int>> neighbors,
+        Dictionary<long, int> pairSimilarity)
+    {
+        var group = new List<int> { seed };
+
+        if (!neighbors.TryGetValue(seed, out var seedNeighbors))
+        {
+            return group;
+        }
+
+        var candidates = seedNeighbors
+            .Where(remaining.Contains)
+            .OrderByDescending(id => pairSimilarity.GetValueOrDefault(GetPairKey(seed, id), 0))
+            .ThenBy(id => id)
+            .ToList();
+
+        foreach (var candidate in candidates)
+        {
+            bool connectedToAll = true;
+            foreach (var member in group)
+            {
+                if (member == candidate)
+                {
+                    continue;
+                }
+
+                var key = GetPairKey(member, candidate);
+                if (!pairSimilarity.ContainsKey(key))
+                {
+                    connectedToAll = false;
+                    break;
+                }
+            }
+
+            if (connectedToAll)
+            {
+                group.Add(candidate);
+            }
+        }
+
+        return group;
+    }
+
+    private static int CalculateGroupSimilarity(List<int> groupMembers, Dictionary<long, int> pairSimilarity)
+    {
+        var values = new List<int>();
+
+        for (int i = 0; i < groupMembers.Count; i++)
+        {
+            for (int j = i + 1; j < groupMembers.Count; j++)
+            {
+                var key = GetPairKey(groupMembers[i], groupMembers[j]);
+                if (pairSimilarity.TryGetValue(key, out var similarity))
+                {
+                    values.Add(similarity);
+                }
+            }
+        }
+
+        if (values.Count == 0)
+        {
+            return 100;
+        }
+
+        values.Sort();
+        return values[values.Count / 2];
     }
 }

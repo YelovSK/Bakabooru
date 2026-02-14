@@ -25,6 +25,7 @@ import {
     JobViewModel,
     JobHistoryResponse,
     ScheduledJob,
+    CronPreview,
     JobMode
 } from "./models";
 
@@ -157,6 +158,14 @@ export class BakabooruService {
 
     updateJobSchedule(id: number, schedule: Partial<ScheduledJob>): Observable<void> {
         return this.http.put<void>(`${this.baseUrl}/jobs/schedules/${id}`, schedule);
+    }
+
+    previewCronExpression(expression: string, count = 5): Observable<CronPreview> {
+        const params = new HttpParams()
+            .set('expression', expression)
+            .set('count', String(count));
+
+        return this.http.get<CronPreview>(`${this.baseUrl}/jobs/cron-preview`, { params });
     }
 
     startJob(name: string, mode: JobMode = 'missing'): Observable<{ jobId: string }> {

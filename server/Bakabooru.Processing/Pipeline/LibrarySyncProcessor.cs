@@ -211,6 +211,7 @@ public class LibrarySyncProcessor : ILibrarySyncProcessor
                         post.Width = 0;
                         post.Height = 0;
                         post.PerceptualHash = null;
+                        post.PerceptualHashP = null;
                     }
                 }
             }

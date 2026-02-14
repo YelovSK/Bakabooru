@@ -178,6 +178,12 @@ export interface ScheduledJob {
     nextRun?: string;
 }
 
+export interface CronPreview {
+    isValid: boolean;
+    error?: string;
+    nextRuns: string[];
+}
+
 export interface UpdatePostMetadata {
     tags?: string[];
     sources?: string[];

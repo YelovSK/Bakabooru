@@ -37,6 +37,7 @@ public class GenerateThumbnailsJob : IJob
             Directory.CreateDirectory(_thumbnailPath);
     }
 
+    public int DisplayOrder => 50;
     public string Name => "Generate Thumbnails";
     public string Description => "Generates missing (or all) thumbnails for posts.";
     public bool SupportsAllMode => true;

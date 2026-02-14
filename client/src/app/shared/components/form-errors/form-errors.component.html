@@ -1,18 +1,20 @@
-@if (control()?.errors && control()?.touched) {
-  <div class="mt-1 ml-1 space-y-1">
-    @for (error of control()!.errors | keyvalue; track error.key) {
-      <p class="text-[0.75rem] text-red-400 font-medium animate-in fade-in slide-in-from-top-1 duration-200">
-        @switch (error.key) {
-          @case ('required') { {{ label() || 'Field' }} is required }
-          @case ('email') { Invalid email format }
-          @case ('minlength') { {{ label() || 'Field' }} must be at least {{ $any(error.value).requiredLength }} characters }
-          @case ('maxlength') { {{ label() || 'Field' }} must be at most {{ $any(error.value).requiredLength }} characters }
-          @case ('min') { {{ label() || 'Field' }} must be at least {{ $any(error.value).min }} }
-          @case ('max') { {{ label() || 'Field' }} must be at most {{ $any(error.value).max }} }
-          @case ('pattern') { Invalid format }
-          @default { Invalid value }
-        }
-      </p>
-    }
-  </div>
+@if (vm$ | async; as vm) {
+  @if (vm.show) {
+    <div class="mt-1 ml-1 space-y-1">
+      @for (error of vm.errors; track error.key) {
+        <p class="text-[0.75rem] text-red-400 font-medium animate-in fade-in slide-in-from-top-1 duration-200">
+          @switch (error.key) {
+            @case ('required') { {{ label() || 'Field' }} is required }
+            @case ('email') { Invalid email format }
+            @case ('minlength') { {{ label() || 'Field' }} must be at least {{ $any(error.value).requiredLength }} characters }
+            @case ('maxlength') { {{ label() || 'Field' }} must be at most {{ $any(error.value).requiredLength }} characters }
+            @case ('min') { {{ label() || 'Field' }} must be at least {{ $any(error.value).min }} }
+            @case ('max') { {{ label() || 'Field' }} must be at most {{ $any(error.value).max }} }
+            @case ('pattern') { Invalid format }
+            @default { Invalid value }
+          }
+        </p>
+      }
+    </div>
+  }
 }

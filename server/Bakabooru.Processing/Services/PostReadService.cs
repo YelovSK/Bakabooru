@@ -11,6 +11,8 @@ namespace Bakabooru.Processing.Services;
 
 public class PostReadService
 {
+    private const int MaxPageSize = 500;
+
     private readonly BakabooruDbContext _context;
 
     public PostReadService(BakabooruDbContext context)
@@ -22,7 +24,7 @@ public class PostReadService
     {
         if (page < 1) page = 1;
         if (pageSize < 1) pageSize = 20;
-        if (pageSize > 100) pageSize = 100;
+        if (pageSize > MaxPageSize) pageSize = MaxPageSize;
 
         var parsedQuery = QueryParser.Parse(tags ?? string.Empty);
         var query = await ApplySearchFiltersAsync(_context.Posts.AsNoTracking(), parsedQuery, cancellationToken);

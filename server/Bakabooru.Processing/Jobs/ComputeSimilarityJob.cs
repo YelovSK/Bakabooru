@@ -28,8 +28,9 @@ public class ComputeSimilarityJob : IJob
         _parallelism = Math.Max(1, config.Value.Processing.SimilarityParallelism);
     }
 
+    public int DisplayOrder => 30;
     public string Name => "Compute Similarity";
-    public string Description => "Computes perceptual hashes (dHash) for image posts.";
+    public string Description => "Computes perceptual hashes (dHash + pHash) for image posts.";
     public bool SupportsAllMode => true;
 
     public async Task ExecuteAsync(JobContext context)
@@ -42,7 +43,9 @@ public class ComputeSimilarityJob : IJob
         var query = db.Posts.AsNoTracking().AsQueryable();
         if (context.Mode == JobMode.Missing)
         {
-            query = query.Where(p => p.PerceptualHash == null || p.PerceptualHash == 0);
+            query = query.Where(p =>
+                p.PerceptualHash == null || p.PerceptualHash == 0 ||
+                p.PerceptualHashP == null || p.PerceptualHashP == 0);
         }
 
         var totalCandidates = await query.CountAsync(context.CancellationToken);
@@ -104,7 +107,7 @@ public class ComputeSimilarityJob : IJob
                 continue;
             }
 
-            var results = new ConcurrentBag<(int PostId, ulong? Hash)>();
+            var results = new ConcurrentBag<(int PostId, SimilarityHashes? Hashes)>();
 
             await Parallel.ForEachAsync(
                 imageBatch,
@@ -118,9 +121,9 @@ public class ComputeSimilarityJob : IJob
                     try
                     {
                         var fullPath = Path.Combine(post.LibraryPath, post.RelativePath);
-                        var hash = await similarityService.ComputeHashAsync(fullPath, ct);
+                        var hashes = await similarityService.ComputeHashesAsync(fullPath, ct);
 
-                        results.Add((post.Id, hash));
+                        results.Add((post.Id, hashes));
                         Interlocked.Increment(ref processed);
                     }
                     catch (Exception ex)
@@ -139,7 +142,8 @@ public class ComputeSimilarityJob : IJob
             {
                 if (entities.TryGetValue(result.PostId, out var entity))
                 {
-                    entity.PerceptualHash = result.Hash;
+                    entity.PerceptualHash = result.Hashes?.DHash;
+                    entity.PerceptualHashP = result.Hashes?.PHash;
                 }
             }
 

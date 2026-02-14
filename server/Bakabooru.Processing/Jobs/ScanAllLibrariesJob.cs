@@ -13,6 +13,7 @@ public class ScanAllLibrariesJob : IJob
         _scopeFactory = scopeFactory;
     }
 
+    public int DisplayOrder => 10;
     public string Name => "Scan All Libraries";
     public string Description => "Triggers a recursive scan for all configured libraries.";
     public bool SupportsAllMode => false;

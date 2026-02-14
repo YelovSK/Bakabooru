@@ -14,35 +14,33 @@
         </div>
 
         <div class="flex items-center gap-6 bg-glass-bg border border-glass-border px-4 py-2 rounded-xl">
-            <!-- Slider for Grid Size -->
-            <div class="flex items-center gap-3 text-text-muted text-[0.85rem] font-medium whitespace-nowrap pr-4 border-r border-white/10">
-                <span>Grid Size:</span>
-                <input type="range"
-                       [value]="gridSizeIndex()"
-                       (input)="onGridSizeChange($event)"
-                       min="0"
-                       [max]="gridSizes.length - 1"
-                       step="1"
-                       class="w-32 h-1.5 bg-white/10 rounded-lg appearance-none cursor-pointer accent-accent-primary transition-all hover:bg-white/15" />
+            <div class="pr-4 border-r border-white/10">
+                <app-form-slider-input
+                    [label]="'Thumb Size:'"
+                    [value]="thumbnailSize()"
+                    [min]="thumbnailSizeMin"
+                    [max]="thumbnailSizeMax"
+                    [step]="thumbnailSizeStep"
+                    [suffix]="'px'"
+                    [trackWidthClass]="'w-32'"
+                    [valueMinWidthClass]="'min-w-[4.5rem]'"
+                    (valueChange)="onThumbnailSizeChange($event)">
+                </app-form-slider-input>
             </div>
 
-            <!-- Page Size Dropdown -->
-            <div class="w-48">
-                <app-form-dropdown
-                    [options]="pageSizeOptions"
-                    [value]="pageSize()"
-                    placeholder="Page size"
-                    (valueChange)="onPageSizeChange($event ?? 50)">
-                </app-form-dropdown>
+            <div class="w-44 shrink-0 inline-flex items-center justify-end gap-2 text-right text-text-muted text-[0.85rem] font-medium whitespace-nowrap">
+                <span>Posts/Page:</span>
+                <span class="inline-block min-w-[4ch] text-text-primary tabular-nums text-right">{{ pageSize() }}</span>
+                <span class="text-text-dim">(auto)</span>
             </div>
         </div>
     </header>
 
     @if (postsState(); as postsState) {
-    <div class="relative pb-32" [class.opacity-40]="postsState.isLoading && postsState.data" [class.blur-[2px]]="postsState.isLoading && postsState.data" [class.pointer-events-none]="postsState.isLoading && postsState.data">
+    <div #gridViewport class="relative pb-32" [class.opacity-40]="postsState.isLoading && postsState.data" [class.blur-[2px]]="postsState.isLoading && postsState.data" [class.pointer-events-none]="postsState.isLoading && postsState.data">
         @if (postsState.isLoading && !postsState.data) {
         <!-- Initial Skeleton Grid -->
-        <div class="grid gap-2" [style.grid-template-columns]="'repeat(auto-fill, minmax(' + gridSize() + 'px, 1fr))'">
+        <div class="grid gap-2" [style.grid-template-columns]="gridTemplateColumns()">
             @for (i of [1,2,3,4,5,6,7,8,9,10,11,12]; track i) {
             <div class="relative rounded-lg overflow-hidden aspect-square bg-bg-secondary animate-pulse pointer-events-none">
                 <div class="w-full h-full bg-linear-to-r from-bg-secondary via-[#2d3e5a] to-bg-secondary bg-size-[200%_100%]"></div>
@@ -52,7 +50,7 @@
         } @else {
         <!-- Actual Content Grid -->
         @if (postsState.data; as pagedPosts) {
-        <div class="grid gap-2" [style.grid-template-columns]="'repeat(auto-fill, minmax(' + gridSize() + 'px, 1fr))'">
+        <div class="grid gap-2" [style.grid-template-columns]="gridTemplateColumns()">
             @for (post of pagedPosts.items; track post.id) {
             <a class="relative rounded-lg overflow-hidden aspect-square bg-bg-secondary cursor-pointer transition-all duration-300 hover:-translate-y-1.5 hover:scale-110 hover:shadow-[0_20px_50px_rgba(0,0,0,0.5)] hover:z-5 group" [routerLink]="appLinks.post(post.id)" [queryParams]="{ query: query() }">
                 <img [src]="environment.mediaBaseUrl + post.thumbnailUrl" [alt]="'Post ' + post.id" class="block w-full h-full object-cover"
@@ -88,7 +86,6 @@
 
                 <div class="absolute bottom-0 left-0 right-0 p-4 pr-14 bg-linear-to-t from-black/80 to-transparent flex justify-between opacity-0 group-hover:opacity-100 transition-opacity z-4">
                     <span class="font-bold text-[0.8rem] text-white">#{{ post.id }}</span>
-                    <span class="text-text-dim text-[0.8rem]">{{ post.tags.length }} tags</span>
                 </div>
             </a>
             }

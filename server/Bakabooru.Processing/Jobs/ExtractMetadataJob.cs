@@ -28,6 +28,7 @@ public class ExtractMetadataJob : IJob
         _parallelism = Math.Max(1, config.Value.Processing.MetadataParallelism);
     }
 
+    public int DisplayOrder => 20;
     public string Name => "Extract Metadata";
     public string Description => "Extracts dimensions and content type for posts.";
     public bool SupportsAllMode => true;

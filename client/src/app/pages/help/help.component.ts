@@ -13,6 +13,11 @@ type SearchSyntaxItem = {
   example: string;
 };
 
+type SortFieldItem = {
+  field: string;
+  aliases?: string[];
+};
+
 @Component({
   selector: 'app-help',
   standalone: true,
@@ -72,6 +77,16 @@ type SearchSyntaxItem = {
             </tbody>
           </table>
         </div>
+
+        <div class="mt-5 rounded-xl border border-glass-border bg-glass-bg p-4">
+          <h3 class="text-base font-semibold text-text-secondary mb-2">Available sort fields</h3>
+          <ul class="list-disc pl-5 space-y-1 text-sm text-text-dim">
+            <li *ngFor="let item of sortFields">
+              <code>{{ item.field }}</code>
+              <span *ngIf="item.aliases?.length"> (aliases: <code>{{ item.aliases!.join(', ') }}</code>)</span>
+            </li>
+          </ul>
+        </div>
       </section>
 
       <section class="glass-card p-6">
@@ -102,10 +117,18 @@ export class HelpComponent {
     { syntax: 'filename:TEXT', description: 'Match text in relative file path', example: 'filename:abc.jpg' },
     { syntax: 'filename:*pattern*', description: 'Filename wildcard search (* and ?)', example: 'filename:*wallpaper*' },
     { syntax: '-filename:TEXT', description: 'Exclude matching file paths', example: '-filename:tmp' },
-    { syntax: 'sort:FIELD', description: 'Sort ascending by default', example: 'sort:id' },
+    { syntax: 'sort:FIELD', description: 'Sort by field (asc by default)', example: 'sort:id' },
     { syntax: 'sort:FIELD:asc|desc', description: 'Explicit sort direction', example: 'sort:tag-count:desc' },
-    { syntax: 'sort:modified-date / sort:file-date', description: 'Sort by file modified timestamp', example: 'sort:modified-date:desc' },
-    { syntax: 'sort:import-date', description: 'Sort by post import timestamp', example: 'sort:import-date:desc' },
-    { syntax: 'sort:new / sort:old', description: 'Aliases for file date (newest/oldest)', example: 'sort:new' },
+    { syntax: 'sort:new / sort:old', description: 'Aliases for file modified date with direction presets (new=desc, old=asc)', example: 'sort:new' },
+  ];
+
+  sortFields: SortFieldItem[] = [
+    { field: 'id' },
+    { field: 'modified-date', aliases: ['date', 'file-date', 'file-modified-date'] },
+    { field: 'import-date' },
+    { field: 'tag-count', aliases: ['tagcount', 'tags'] },
+    { field: 'width' },
+    { field: 'height' },
+    { field: 'size', aliases: ['size-bytes', 'filesize'] },
   ];
 }

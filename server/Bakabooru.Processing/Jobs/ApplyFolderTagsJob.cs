@@ -21,6 +21,7 @@ public class ApplyFolderTagsJob : IJob
         _logger = logger;
     }
 
+    public int DisplayOrder => 70;
     public string Name => "Apply Folder Tags";
     public string Description => "Adds tags to posts based on parent folders (spaces become underscores).";
     public bool SupportsAllMode => false;

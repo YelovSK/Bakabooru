@@ -66,4 +66,48 @@ export class FormNumberInputComponent implements ControlValueAccessor {
   handleBlur(): void {
     this.onTouched();
   }
+
+  stepBy(direction: 1 | -1): void {
+    if (this.disabled) {
+      return;
+    }
+
+    const step = this.getValidStep();
+    const baseline = this.value ?? this.min() ?? 0;
+    const raw = baseline + direction * step;
+    const clamped = this.clamp(raw);
+
+    // Keep decimal stepping stable (e.g. 0.1 + 0.2).
+    const next = Number(clamped.toFixed(this.getDecimalPlaces(step)));
+
+    this.value = next;
+    this.onChange(next);
+    this.onTouched();
+  }
+
+  private clamp(value: number): number {
+    const min = this.min();
+    const max = this.max();
+
+    if (min !== null && value < min) {
+      return min;
+    }
+
+    if (max !== null && value > max) {
+      return max;
+    }
+
+    return value;
+  }
+
+  private getValidStep(): number {
+    const step = this.step();
+    return Number.isFinite(step) && step > 0 ? step : 1;
+  }
+
+  private getDecimalPlaces(value: number): number {
+    const text = value.toString();
+    const dotIndex = text.indexOf('.');
+    return dotIndex >= 0 ? text.length - dotIndex - 1 : 0;
+  }
 }

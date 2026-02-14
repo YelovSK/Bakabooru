@@ -126,4 +126,12 @@ public class JobsController : ControllerBase
     {
         return await _jobScheduleService.UpdateScheduleAsync(id, update).ToHttpResult(_ => NoContent());
     }
+
+    [HttpGet("cron-preview")]
+    public ActionResult<CronPreviewDto> PreviewCron(
+        [FromQuery][Required] string expression,
+        [FromQuery][Range(1, 10)] int count = 5)
+    {
+        return Ok(_jobScheduleService.PreviewCron(expression, count));
+    }
 }

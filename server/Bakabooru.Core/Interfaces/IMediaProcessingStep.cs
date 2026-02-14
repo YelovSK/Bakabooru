@@ -23,7 +23,8 @@ public class MediaProcessingContext
 
     // Results populated by steps
     public string? ContentHash { get; set; }
-    public ulong? PerceptualHash { get; set; }
+    public ulong? PerceptualDHash { get; set; }
+    public ulong? PerceptualPHash { get; set; }
     public int Width { get; set; }
     public int Height { get; set; }
     public long SizeBytes { get; set; }

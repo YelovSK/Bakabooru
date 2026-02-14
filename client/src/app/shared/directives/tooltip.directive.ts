@@ -22,7 +22,15 @@ export class TooltipDirective {
   /** Delay before showing tooltip (ms) */
   tooltipDelay = input<number>(200);
 
+  /** Show tooltip near mouse cursor instead of anchoring to host element */
+  tooltipFollowCursor = input<boolean>(false);
+
   private tooltipElement: HTMLElement | null = null;
+  private interactionMode: 'mouse' | 'focus' = 'mouse';
+  private lastMousePosition: { x: number; y: number } | null = null;
+  private readonly hostGapPx = 8;
+  private readonly cursorGapPx = 12;
+  private readonly viewportPaddingPx = 8;
 
   constructor() {
     this.setupListeners();
@@ -31,15 +39,36 @@ export class TooltipDirective {
   private setupListeners(): void {
     const el = this.el.nativeElement;
 
-    const mouseEnter$ = fromEvent(el, 'mouseenter');
+    const mouseEnter$ = fromEvent<MouseEvent>(el, 'mouseenter');
+    const mouseMove$ = fromEvent<MouseEvent>(el, 'mousemove');
     const mouseLeave$ = fromEvent(el, 'mouseleave');
     const focus$ = fromEvent(el, 'focusin');
     const blur$ = fromEvent(el, 'focusout');
-
-    const show$ = merge(mouseEnter$, focus$);
     const hide$ = merge(mouseLeave$, blur$);
 
-    show$.pipe(
+    mouseMove$.pipe(
+      tap(event => {
+        this.lastMousePosition = { x: event.clientX, y: event.clientY };
+      }),
+      takeUntilDestroyed(this.destroyRef)
+    ).subscribe();
+
+    mouseEnter$.pipe(
+      tap(event => {
+        this.interactionMode = 'mouse';
+        this.lastMousePosition = { x: event.clientX, y: event.clientY };
+      }),
+      switchMap(() => timer(this.tooltipDelay()).pipe(
+        takeUntil(hide$),
+        tap(() => this.show())
+      )),
+      takeUntilDestroyed(this.destroyRef)
+    ).subscribe();
+
+    focus$.pipe(
+      tap(() => {
+        this.interactionMode = 'focus';
+      }),
       switchMap(() => timer(this.tooltipDelay()).pipe(
         takeUntil(hide$),
         tap(() => this.show())
@@ -81,43 +110,98 @@ export class TooltipDirective {
 
     // Remove after fade-out animation
     setTimeout(() => el.remove(), 150);
+    this.lastMousePosition = null;
   }
 
   private positionTooltip(): void {
     if (!this.tooltipElement) return;
 
-    const hostRect = this.el.nativeElement.getBoundingClientRect();
-    const tooltipRect = this.tooltipElement.getBoundingClientRect();
-    const gap = 8;
-    const padding = 8;
-
-    let top: number;
-    let left: number;
-
-    switch (this.tooltipPosition()) {
-      case 'top':
-        top = hostRect.top - tooltipRect.height - gap;
-        left = hostRect.left + (hostRect.width - tooltipRect.width) / 2;
-        break;
-      case 'bottom':
-        top = hostRect.bottom + gap;
-        left = hostRect.left + (hostRect.width - tooltipRect.width) / 2;
-        break;
-      case 'left':
-        top = hostRect.top + (hostRect.height - tooltipRect.height) / 2;
-        left = hostRect.left - tooltipRect.width - gap;
-        break;
-      case 'right':
-        top = hostRect.top + (hostRect.height - tooltipRect.height) / 2;
-        left = hostRect.right + gap;
-        break;
+    if (this.tooltipFollowCursor() && this.interactionMode === 'mouse' && this.lastMousePosition) {
+      this.positionTooltipAtCursor(this.lastMousePosition.x, this.lastMousePosition.y);
+      return;
     }
 
-    // Keep within viewport (using fixed positioning, no scroll offset needed)
-    left = Math.max(padding, Math.min(left, window.innerWidth - tooltipRect.width - padding));
-    top = Math.max(padding, top);
+    const hostRect = this.el.nativeElement.getBoundingClientRect();
+    const tooltipRect = this.tooltipElement.getBoundingClientRect();
+    const position = this.computePositionFromRect(hostRect, tooltipRect, this.hostGapPx);
+    this.applyPosition(this.clampToViewport(position, tooltipRect));
+  }
 
-    this.tooltipElement.style.top = `${top}px`;
-    this.tooltipElement.style.left = `${left}px`;
+  private positionTooltipAtCursor(clientX: number, clientY: number): void {
+    if (!this.tooltipElement) return;
+
+    const tooltipRect = this.tooltipElement.getBoundingClientRect();
+    const position = this.computePositionFromPoint(clientX, clientY, tooltipRect, this.cursorGapPx);
+    this.applyPosition(this.clampToViewport(position, tooltipRect));
+  }
+
+  private computePositionFromRect(hostRect: DOMRect, tooltipRect: DOMRect, gap: number): { left: number; top: number } {
+    switch (this.tooltipPosition()) {
+      case 'top':
+        return {
+          left: hostRect.left + (hostRect.width - tooltipRect.width) / 2,
+          top: hostRect.top - tooltipRect.height - gap
+        };
+      case 'bottom':
+        return {
+          left: hostRect.left + (hostRect.width - tooltipRect.width) / 2,
+          top: hostRect.bottom + gap
+        };
+      case 'left':
+        return {
+          left: hostRect.left - tooltipRect.width - gap,
+          top: hostRect.top + (hostRect.height - tooltipRect.height) / 2
+        };
+      case 'right':
+        return {
+          left: hostRect.right + gap,
+          top: hostRect.top + (hostRect.height - tooltipRect.height) / 2
+        };
+    }
+  }
+
+  private computePositionFromPoint(clientX: number, clientY: number, tooltipRect: DOMRect, gap: number): { left: number; top: number } {
+    switch (this.tooltipPosition()) {
+      case 'top':
+        return {
+          left: clientX - tooltipRect.width / 2,
+          top: clientY - tooltipRect.height - gap
+        };
+      case 'bottom':
+        return {
+          left: clientX - tooltipRect.width / 2,
+          top: clientY + gap
+        };
+      case 'left':
+        return {
+          left: clientX - tooltipRect.width - gap,
+          top: clientY - tooltipRect.height / 2
+        };
+      case 'right':
+        return {
+          left: clientX + gap,
+          top: clientY - tooltipRect.height / 2
+        };
+    }
+  }
+
+  private clampToViewport(position: { left: number; top: number }, tooltipRect: DOMRect): { left: number; top: number } {
+    const left = Math.max(
+      this.viewportPaddingPx,
+      Math.min(position.left, window.innerWidth - tooltipRect.width - this.viewportPaddingPx)
+    );
+    const top = Math.max(
+      this.viewportPaddingPx,
+      Math.min(position.top, window.innerHeight - tooltipRect.height - this.viewportPaddingPx)
+    );
+
+    return { left, top };
+  }
+
+  private applyPosition(position: { left: number; top: number }): void {
+    if (!this.tooltipElement) return;
+
+    this.tooltipElement.style.left = `${position.left}px`;
+    this.tooltipElement.style.top = `${position.top}px`;
   }
 }

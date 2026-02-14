@@ -53,6 +53,13 @@ public class ScheduledJobUpdateDto
     public bool IsEnabled { get; set; }
 }
 
+public class CronPreviewDto
+{
+    public bool IsValid { get; set; }
+    public string? Error { get; set; }
+    public List<DateTime> NextRuns { get; set; } = [];
+}
+
 public class DuplicatePostDto
 {
     public int Id { get; set; }
