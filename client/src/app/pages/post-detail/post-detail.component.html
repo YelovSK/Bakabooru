@@ -181,7 +181,7 @@
             }
             @case ('video') {
             <video [src]="environment.mediaBaseUrl + pd.contentUrl" (loadeddata)="imageLoading.set(false)"
-                    class="max-w-full max-h-full object-contain transition-opacity duration-200"
+                    class="w-full h-full object-contain"
                     controls [autoplay]="autoPlayVideos()" [muted]="startVideosMuted()" loop></video>
             }
         }

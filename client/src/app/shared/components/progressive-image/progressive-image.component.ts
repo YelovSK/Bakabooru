@@ -14,15 +14,8 @@ export class ProgressiveImageComponent {
   readonly height = input<number | null>(null);
 
   readonly fullVisible = signal(false);
+
   readonly loadToken = signal(0);
-
-  readonly aspectRatio = computed(() => {
-    if (this.width() && this.height()) {
-      return this.width()! / this.height()!;
-    }
-
-    return null;
-  });
 
   constructor() {
     effect(() => {
