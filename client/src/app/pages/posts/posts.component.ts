@@ -74,9 +74,8 @@ export class PostsComponent implements AfterViewInit {
     private static readonly MOBILE_BREAKPOINT_PX = 768;
     private static readonly MIN_TILE_SIZE_PX = 56;
     private static readonly TOOLBAR_SHOW_TOP_THRESHOLD_PX = 20;
-    private static readonly TOOLBAR_HIDE_SCROLL_DELTA_PX = 44;
-    private static readonly TOOLBAR_SHOW_SCROLL_DELTA_PX = 26;
-    private static readonly TOOLBAR_LAYOUT_SETTLE_MS = 260;
+    private static readonly TOOLBAR_HIDE_SCROLL_DELTA_PX = 40;
+    private static readonly TOOLBAR_SHOW_SCROLL_DELTA_PX = 150;
     private static readonly TOOLBAR_TOGGLE_GUARD_MS = 120;
 
     private static readonly MIN_VIEWPORT_HEIGHT_PX = 260;
@@ -104,7 +103,6 @@ export class PostsComponent implements AfterViewInit {
 
     private urlSyncTimer: ReturnType<typeof setTimeout> | null = null;
     private scrollIdleTimer: ReturnType<typeof setTimeout> | null = null;
-    private toolbarLayoutTimer: ReturnType<typeof setTimeout> | null = null;
 
     private readonly bakabooru = inject(BakabooruService);
     private readonly router = inject(Router);
@@ -146,7 +144,6 @@ export class PostsComponent implements AfterViewInit {
     currentOffset = signal(0);
     isScrolling = signal(false);
     toolbarHidden = signal(false);
-    toolbarTransitioning = signal(false);
     isMobileViewport = signal(false);
 
     readonly totalPages = computed(() => {
@@ -262,7 +259,6 @@ export class PostsComponent implements AfterViewInit {
             this.fastScroller.dispose();
             this.clearUrlSyncTimer();
             this.clearScrollIdleTimer();
-            this.clearToolbarLayoutTimer();
             this.virtualRowDataSource.disconnect();
         });
 
@@ -516,7 +512,6 @@ export class PostsComponent implements AfterViewInit {
         this.fastScroller.visible.set(false);
         this.fastScroller.dragging.set(false);
         this.toolbarHidden.set(false);
-        this.toolbarTransitioning.set(false);
         this.toolbarScrollAccumulator = 0;
         this.toolbarToggleLockUntilMs = 0;
 
@@ -709,7 +704,6 @@ export class PostsComponent implements AfterViewInit {
         this.isMobileViewport.set(mobile);
         if (!mobile && this.toolbarHidden()) {
             this.toolbarHidden.set(false);
-            this.toolbarTransitioning.set(false);
             this.toolbarScrollAccumulator = 0;
             this.toolbarToggleLockUntilMs = 0;
         }
@@ -805,31 +799,10 @@ export class PostsComponent implements AfterViewInit {
         }
 
         this.toolbarHidden.set(hidden);
-        this.toolbarTransitioning.set(true);
         this.toolbarScrollAccumulator = 0;
         this.lastToolbarScrollTop = Math.max(0, this.viewportRef?.measureScrollOffset('top') ?? this.lastToolbarScrollTop);
         this.toolbarToggleLockUntilMs = performance.now()
-            + PostsComponent.TOOLBAR_LAYOUT_SETTLE_MS
             + PostsComponent.TOOLBAR_TOGGLE_GUARD_MS;
-        this.recalculateLayout(false);
-        this.scheduleToolbarLayoutRecalc();
-    }
-
-    private scheduleToolbarLayoutRecalc(): void {
-        this.clearToolbarLayoutTimer();
-
-        this.toolbarLayoutTimer = setTimeout(() => {
-            this.toolbarLayoutTimer = null;
-            this.toolbarTransitioning.set(false);
-            this.recalculateLayout(false);
-        }, PostsComponent.TOOLBAR_LAYOUT_SETTLE_MS);
-    }
-
-    private clearToolbarLayoutTimer(): void {
-        if (this.toolbarLayoutTimer !== null) {
-            clearTimeout(this.toolbarLayoutTimer);
-            this.toolbarLayoutTimer = null;
-        }
     }
 
     private refreshFastScrollerGeometry(): void {

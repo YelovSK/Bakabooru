@@ -1,8 +1,8 @@
 <section class="posts-page">
     <header
-        class="posts-toolbar sticky top-0 z-30 mb-3 rounded-xl border border-glass-border bg-bg-secondary/88 px-3 py-3 backdrop-blur-md sm:px-4"
+        class="posts-toolbar sticky top-0 z-30 mb-3 rounded-xl border border-glass-border bg-bg-secondary px-3 py-3 sm:px-4"
         [class.posts-toolbar-hidden]="toolbarHidden()">
-        <div class="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+        <div class="posts-toolbar-layout flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
             <div class="relative z-20 w-full lg:max-w-[560px]">
                 <app-autocomplete
                     [value]="currentSearchValue()"
@@ -23,8 +23,8 @@
                 </app-autocomplete>
             </div>
 
-            <div class="flex flex-wrap items-center gap-2 lg:justify-end">
-                <div class="inline-flex items-center gap-2 rounded-lg border border-glass-border bg-bg-primary/45 p-1">
+            <div class="posts-toolbar-meta flex flex-wrap items-center gap-2 lg:justify-end">
+                <div class="posts-density-controls inline-flex items-center gap-2 rounded-lg border border-glass-border bg-bg-primary">
                     @for (densityOption of densityOptions; track densityOption.value) {
                         <button
                             type="button"
@@ -39,9 +39,6 @@
                 <div class="density-summary">
                     @if (totalCount() !== null) {
                         <span>{{ totalCount()! | number }} posts</span>
-                        @if (totalPages() > 0) {
-                            <span class="text-text-dim">Page {{ currentPage() }} / {{ totalPages() }}</span>
-                        }
                     } @else {
                         <span>Loading...</span>
                     }
@@ -58,7 +55,6 @@
         <div
             #viewportShell
             class="posts-viewport-shell relative"
-            [class.posts-toolbar-transitioning]="toolbarTransitioning()"
             [class.posts-scrolling]="isScrolling() || fastScrollerDragging()">
 
             <cdk-virtual-scroll-viewport

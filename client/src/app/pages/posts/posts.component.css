@@ -3,16 +3,19 @@
 }
 
 .posts-toolbar {
-    max-height: 280px;
     overflow: clip;
-    box-shadow: 0 10px 22px rgba(0, 0, 0, 0.28);
+    box-shadow: none;
     transition:
-        max-height 210ms ease,
-        margin-bottom 210ms ease,
-        padding-top 210ms ease,
-        padding-bottom 210ms ease,
+        transform 210ms ease,
         opacity 150ms ease,
         border-color 150ms ease;
+}
+
+.posts-density-controls,
+.density-summary {
+    box-sizing: border-box;
+    height: 2.05rem;
+    min-height: 2.05rem;
 }
 
 .density-btn {
@@ -21,8 +24,12 @@
     background: transparent;
     color: var(--color-text-muted);
     cursor: pointer;
+    display: inline-flex;
     font-size: 0.76rem;
     font-weight: 600;
+    height: 100%;
+    align-items: center;
+    justify-content: center;
     padding: 0.45rem 0.72rem;
     transition: all 140ms ease;
     white-space: nowrap;
@@ -41,7 +48,7 @@
 
 .density-summary {
     align-items: center;
-    background: rgba(15, 23, 42, 0.58);
+    background: var(--color-bg-primary);
     border: 1px solid var(--color-glass-border);
     border-radius: 0.7rem;
     color: var(--color-text-muted);
@@ -336,37 +343,61 @@
     }
 }
 
-.posts-viewport-shell.posts-toolbar-transitioning .fast-scroller-hover-zone {
-    pointer-events: none;
-}
-
-.posts-viewport-shell.posts-toolbar-transitioning .fast-scroller-rail {
-    opacity: 0;
-    pointer-events: none;
-}
-
-.posts-viewport-shell.posts-toolbar-transitioning .fast-scroller-bubble {
-    opacity: 0;
-}
-
 @media (max-width: 768px) {
     .posts-toolbar {
+        left: 0;
+        margin-bottom: 0;
+        max-height: none;
+        position: absolute;
         border-radius: 0.8rem;
-        margin-bottom: 0.5rem;
-        padding-bottom: 0.65rem;
-        padding-top: 0.65rem;
+        right: 0;
+        top: 0;
+        transform: translateY(0);
+        z-index: 40;
+        padding: 0.5rem 0.6rem;
     }
 
     .posts-toolbar.posts-toolbar-hidden {
         border-color: transparent;
-        border-width: 0;
-        margin-bottom: 0;
-        max-height: 0;
-        min-height: 0;
         opacity: 0;
-        padding-bottom: 0;
-        padding-top: 0;
+        transform: translateY(-110%);
         pointer-events: none;
+    }
+
+    .posts-toolbar-layout {
+        gap: 0.55rem;
+    }
+
+    .posts-toolbar-meta {
+        align-items: stretch;
+        display: flex;
+        flex-wrap: nowrap;
+        gap: 0.4rem;
+        justify-content: space-between;
+        min-width: 0;
+        width: 100%;
+    }
+
+    .posts-density-controls,
+    .density-summary {
+        height: 1.9rem;
+        min-height: 1.9rem;
+    }
+
+    .posts-density-controls {
+        flex: 0 0 auto;
+        gap: 0.2rem;
+        padding: 0.2rem;
+    }
+
+    .density-btn {
+        align-items: center;
+        border-radius: 0.45rem;
+        display: inline-flex;
+        font-size: 0.72rem;
+        height: 100%;
+        justify-content: center;
+        padding: 0 0.56rem;
     }
 
     .fast-scroller-rail {
@@ -387,7 +418,18 @@
     }
 
     .density-summary {
-        font-size: 0.76rem;
-        min-height: 1.95rem;
+        flex: 0 0 auto;
+        font-size: 0.74rem;
+        min-width: 0;
+        overflow: hidden;
+        padding: 0 0.56rem;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    :host ::ng-deep app-autocomplete input {
+        border-radius: 12px;
+        font-size: 0.84rem;
+        padding: 0.58rem 0.9rem;
     }
 }
