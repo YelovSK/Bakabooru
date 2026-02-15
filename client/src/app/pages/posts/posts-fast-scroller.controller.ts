@@ -21,7 +21,7 @@ interface PostsFastScrollerBindings {
 @Injectable()
 export class PostsFastScrollerController {
     private static readonly FAST_SCROLLER_MIN_THUMB_PX = 44;
-    private static readonly FAST_SCROLLER_HIDE_DELAY_MS = 900;
+    private static readonly FAST_SCROLLER_HIDE_DELAY_MS = 250;
     private static readonly FAST_SCROLLER_BUBBLE_HEIGHT_PX = 36;
 
     private bindings: PostsFastScrollerBindings | null = null;

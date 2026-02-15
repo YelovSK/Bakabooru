@@ -79,7 +79,7 @@ export class PostsComponent implements AfterViewInit {
     private static readonly TOOLBAR_TOGGLE_GUARD_MS = 120;
 
     private static readonly MIN_VIEWPORT_HEIGHT_PX = 260;
-    private static readonly VIEWPORT_BOTTOM_GUTTER_PX = 10;
+    private static readonly VIEWPORT_BOTTOM_GUTTER_PX = 0;
 
     private static readonly URL_SYNC_DEBOUNCE_MS = 160;
 

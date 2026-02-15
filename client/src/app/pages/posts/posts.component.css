@@ -1,228 +1,9 @@
-.posts-page {
-    position: relative;
-}
-
-.posts-toolbar {
-    overflow: clip;
-    box-shadow: none;
-    transition:
-        transform 210ms ease,
-        opacity 150ms ease,
-        border-color 150ms ease;
-}
-
-.posts-density-controls,
-.density-summary {
-    box-sizing: border-box;
-    height: 2.05rem;
-    min-height: 2.05rem;
-}
-
-.density-btn {
-    border: 1px solid transparent;
-    border-radius: 0.55rem;
-    background: transparent;
-    color: var(--color-text-muted);
-    cursor: pointer;
-    display: inline-flex;
-    font-size: 0.76rem;
-    font-weight: 600;
-    height: 100%;
-    align-items: center;
-    justify-content: center;
-    padding: 0.45rem 0.72rem;
-    transition: all 140ms ease;
-    white-space: nowrap;
-}
-
-.density-btn:hover {
-    background: rgba(255, 255, 255, 0.06);
-    color: var(--color-text-primary);
-}
-
-.density-btn-active {
-    background: rgba(56, 189, 248, 0.2);
-    border-color: rgba(56, 189, 248, 0.5);
-    color: var(--color-accent-primary);
-}
-
-.density-summary {
-    align-items: center;
-    background: var(--color-bg-primary);
-    border: 1px solid var(--color-glass-border);
-    border-radius: 0.7rem;
-    color: var(--color-text-muted);
-    display: inline-flex;
-    font-size: 0.8rem;
-    font-weight: 600;
-    gap: 0.5rem;
-    min-height: 2.05rem;
-    padding: 0.3rem 0.7rem;
-}
-
-.posts-viewport-shell {
-    min-height: 260px;
-    position: relative;
-}
-
-.posts-virtual-viewport {
-    height: 100%;
-    overflow: auto;
-    overscroll-behavior: contain;
-    overflow-anchor: none;
-    padding-right: 0.2rem;
-    scrollbar-width: none;
-    width: 100%;
-}
-
 .posts-virtual-viewport::-webkit-scrollbar {
     display: none;
 }
 
 .posts-virtual-viewport .cdk-virtual-scroll-content-wrapper {
     width: 100%;
-}
-
-.virtual-row {
-    align-items: stretch;
-    box-sizing: border-box;
-    contain: layout paint style;
-    display: flex;
-    position: relative;
-    width: 100%;
-}
-
-.virtual-row-separator {
-    display: flex;
-    align-items: center;
-}
-
-.row-separator-content {
-    align-items: center;
-    box-sizing: border-box;
-    display: flex;
-    gap: 0.6rem;
-    height: 100%;
-    width: 100%;
-}
-
-.page-divider-line {
-    background: linear-gradient(90deg, transparent, rgba(148, 163, 184, 0.34), transparent);
-    flex: 1;
-    height: 1px;
-}
-
-.page-divider-label {
-    background: rgba(2, 6, 23, 0.78);
-    border: 1px solid rgba(148, 163, 184, 0.3);
-    border-radius: 999px;
-    color: var(--color-text-muted);
-    font-size: 0.73rem;
-    font-weight: 700;
-    letter-spacing: 0.09em;
-    line-height: 1;
-    padding: 0.3rem 0.72rem;
-    text-transform: uppercase;
-}
-
-.row-grid {
-    contain: layout paint style;
-    display: grid;
-    height: 100%;
-    box-sizing: border-box;
-    align-content: start;
-    width: 100%;
-}
-
-.post-tile,
-.post-tile-skeleton,
-.post-tile-placeholder {
-    aspect-ratio: 1 / 1;
-    border-radius: 0.75rem;
-    contain: layout paint style;
-}
-
-.post-tile {
-    background: var(--color-bg-secondary);
-    border: 1px solid rgba(148, 163, 184, 0.12);
-    display: block;
-    overflow: hidden;
-    position: relative;
-    transition: transform 180ms ease, box-shadow 180ms ease, border-color 180ms ease;
-}
-
-.post-tile:hover {
-    border-color: rgba(56, 189, 248, 0.5);
-    box-shadow: 0 10px 22px rgba(15, 23, 42, 0.36);
-    transform: translateY(-1px) scale(1.012);
-    z-index: 2;
-}
-
-.post-tile-image {
-    display: block;
-    height: 100%;
-    object-fit: cover;
-    width: 100%;
-}
-
-.post-badge {
-    align-items: center;
-    background: rgba(15, 23, 42, 0.9);
-    border: 1px solid rgba(255, 255, 255, 0.18);
-    border-radius: 0.45rem;
-    display: inline-flex;
-    height: 1.78rem;
-    justify-content: center;
-    pointer-events: none;
-    position: absolute;
-    width: 1.78rem;
-    z-index: 5;
-}
-
-.post-overlay {
-    align-items: flex-end;
-    background: linear-gradient(to top, rgba(0, 0, 0, 0.82), transparent);
-    color: #f8fafc;
-    display: flex;
-    font-size: 0.74rem;
-    font-weight: 700;
-    inset: auto 0 0;
-    min-height: 2.35rem;
-    opacity: 0;
-    padding: 0.5rem 0.58rem;
-    position: absolute;
-    transition: opacity 160ms ease;
-    z-index: 4;
-}
-
-.post-tile:hover .post-overlay {
-    opacity: 1;
-}
-
-.post-tile-skeleton {
-    background: #22324a;
-    border: 1px solid rgba(148, 163, 184, 0.18);
-}
-
-.post-tile-placeholder {
-    background: rgba(148, 163, 184, 0.05);
-    border: 1px dashed rgba(148, 163, 184, 0.2);
-}
-
-.row-error-chip {
-    position: absolute;
-    right: 0.35rem;
-    top: 0.35rem;
-    z-index: 7;
-    border: 1px solid rgba(248, 113, 113, 0.68);
-    border-radius: 999px;
-    background: rgba(127, 29, 29, 0.75);
-    color: #fecaca;
-    cursor: pointer;
-    font-size: 0.67rem;
-    font-weight: 700;
-    line-height: 1;
-    padding: 0.3rem 0.55rem;
 }
 
 .posts-scrolling .post-tile {
@@ -271,9 +52,6 @@
     background: linear-gradient(
         to left,
         rgba(0, 0, 0, 0.86) 0%,
-        rgba(0, 0, 0, 0.74) 18px,
-        rgba(0, 0, 0, 0.48) 52px,
-        rgba(0, 0, 0, 0.24) 92px,
         rgba(0, 0, 0, 0) 100%
     );
     bottom: 0;
@@ -285,50 +63,14 @@
     width: 156px;
 }
 
-.fast-scroller-visible {
-    opacity: 1;
-    pointer-events: auto;
-}
-
+.fast-scroller-visible,
 .fast-scroller-dragging {
     opacity: 1;
     pointer-events: auto;
 }
 
-.fast-scroller-thumb {
-    background: linear-gradient(180deg, rgba(56, 189, 248, 0.95), rgba(14, 165, 233, 0.95));
-    border-radius: 999px;
-    box-shadow: 0 5px 14px rgba(2, 132, 199, 0.42);
-    left: 50%;
-    position: absolute;
-    top: 0;
-    transform: translateX(-50%);
-    width: 6px;
-}
-
 .fast-scroller-dragging .fast-scroller-thumb {
     width: 9px;
-}
-
-.fast-scroller-bubble {
-    align-items: center;
-    background: rgba(15, 23, 42, 0.92);
-    border: 1px solid rgba(125, 211, 252, 0.44);
-    border-radius: 999px;
-    color: var(--color-text-secondary);
-    display: inline-flex;
-    font-size: 0.74rem;
-    font-weight: 700;
-    height: 36px;
-    justify-content: center;
-    min-width: 74px;
-    padding: 0 0.72rem;
-    pointer-events: none;
-    position: absolute;
-    right: 31px;
-    top: 0;
-    white-space: nowrap;
-    z-index: 36;
 }
 
 @media (hover: hover) and (pointer: fine) {
@@ -344,60 +86,11 @@
 }
 
 @media (max-width: 768px) {
-    .posts-toolbar {
-        left: 0;
-        margin-bottom: 0;
-        max-height: none;
-        position: absolute;
-        border-radius: 0.8rem;
-        right: 0;
-        top: 0;
-        transform: translateY(0);
-        z-index: 40;
-        padding: 0.5rem 0.6rem;
-    }
-
     .posts-toolbar.posts-toolbar-hidden {
         border-color: transparent;
         opacity: 0;
-        transform: translateY(-110%);
         pointer-events: none;
-    }
-
-    .posts-toolbar-layout {
-        gap: 0.55rem;
-    }
-
-    .posts-toolbar-meta {
-        align-items: stretch;
-        display: flex;
-        flex-wrap: nowrap;
-        gap: 0.4rem;
-        justify-content: space-between;
-        min-width: 0;
-        width: 100%;
-    }
-
-    .posts-density-controls,
-    .density-summary {
-        height: 1.9rem;
-        min-height: 1.9rem;
-    }
-
-    .posts-density-controls {
-        flex: 0 0 auto;
-        gap: 0.2rem;
-        padding: 0.2rem;
-    }
-
-    .density-btn {
-        align-items: center;
-        border-radius: 0.45rem;
-        display: inline-flex;
-        font-size: 0.72rem;
-        height: 100%;
-        justify-content: center;
-        padding: 0 0.56rem;
+        transform: translateY(-110%);
     }
 
     .fast-scroller-rail {
@@ -407,24 +100,11 @@
     .fast-scroller-rail::before {
         background: linear-gradient(
             to left,
-            rgba(0, 0, 0, 0.76) 0%,
-            rgba(0, 0, 0, 0.6) 14px,
-            rgba(0, 0, 0, 0.34) 38px,
-            rgba(0, 0, 0, 0.16) 62px,
+            rgba(0, 0, 0, 0.6) 0%,
             rgba(0, 0, 0, 0) 100%
         );
         left: -80px;
         width: 104px;
-    }
-
-    .density-summary {
-        flex: 0 0 auto;
-        font-size: 0.74rem;
-        min-width: 0;
-        overflow: hidden;
-        padding: 0 0.56rem;
-        text-overflow: ellipsis;
-        white-space: nowrap;
     }
 
     :host ::ng-deep app-autocomplete input {
