@@ -7,7 +7,14 @@
             <app-autocomplete [value]="currentSearchValue()" [suggestions]="tagSuggestions()" [multi]="true"
                 placeholder="Search query (e.g., tag-count:0)" (valueChange)="currentSearchValue.set($event)"
                 (queryChange)="onQueryChange($event)" (selection)="onSelection($event)"
-                (searchTrigger)="onSearch($event)" />
+                (searchTrigger)="onSearch($event)">
+                <ng-template let-tag>
+                    <div class="flex w-full items-center justify-between gap-3">
+                        <span class="truncate text-accent-primary">{{ tag.name }}</span>
+                        <span class="badge">{{ tag.usages | number }}</span>
+                    </div>
+                </ng-template>
+            </app-autocomplete>
         </div>
     </header>
 
