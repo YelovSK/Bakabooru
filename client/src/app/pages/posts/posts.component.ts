@@ -71,6 +71,13 @@ export class PostsComponent implements AfterViewInit {
     private static readonly PAGE_SIZE = 100;
 
     private static readonly GRID_GAP_PX = 8;
+    private static readonly MOBILE_BREAKPOINT_PX = 768;
+    private static readonly MIN_TILE_SIZE_PX = 56;
+    private static readonly TOOLBAR_SHOW_TOP_THRESHOLD_PX = 20;
+    private static readonly TOOLBAR_HIDE_SCROLL_DELTA_PX = 44;
+    private static readonly TOOLBAR_SHOW_SCROLL_DELTA_PX = 26;
+    private static readonly TOOLBAR_LAYOUT_SETTLE_MS = 260;
+    private static readonly TOOLBAR_TOGGLE_GUARD_MS = 120;
 
     private static readonly MIN_VIEWPORT_HEIGHT_PX = 260;
     private static readonly VIEWPORT_BOTTOM_GUTTER_PX = 10;
@@ -88,13 +95,16 @@ export class PostsComponent implements AfterViewInit {
     private readonly rowCellsCache = new Map<string, GridCell[]>();
 
     private pendingAnchorOffset: number | null = 0;
-    private lastInternalRouteUpdate: { query: string; page: number; offset: number } | null = null;
-    private internalRouteSyncDeadlineMs = 0;
+    private routeAnchorAppliedForQuery: string | null = null;
 
     private latestMeasuredOffset = 0;
+    private lastToolbarScrollTop = 0;
+    private toolbarScrollAccumulator = 0;
+    private toolbarToggleLockUntilMs = 0;
 
     private urlSyncTimer: ReturnType<typeof setTimeout> | null = null;
     private scrollIdleTimer: ReturnType<typeof setTimeout> | null = null;
+    private toolbarLayoutTimer: ReturnType<typeof setTimeout> | null = null;
 
     private readonly bakabooru = inject(BakabooruService);
     private readonly router = inject(Router);
@@ -135,6 +145,9 @@ export class PostsComponent implements AfterViewInit {
 
     currentOffset = signal(0);
     isScrolling = signal(false);
+    toolbarHidden = signal(false);
+    toolbarTransitioning = signal(false);
+    isMobileViewport = signal(false);
 
     readonly totalPages = computed(() => {
         const total = this.totalCount();
@@ -249,6 +262,7 @@ export class PostsComponent implements AfterViewInit {
             this.fastScroller.dispose();
             this.clearUrlSyncTimer();
             this.clearScrollIdleTimer();
+            this.clearToolbarLayoutTimer();
             this.virtualRowDataSource.disconnect();
         });
 
@@ -261,12 +275,12 @@ export class PostsComponent implements AfterViewInit {
             return;
         }
 
-        this.gridResizeObserver = new ResizeObserver(() => this.recalculateLayout(true));
+        this.gridResizeObserver = new ResizeObserver(() => this.recalculateLayout(false));
         this.gridResizeObserver.observe(shell);
 
         fromEvent(window, 'resize')
             .pipe(auditTime(120), takeUntilDestroyed(this.destroyRef))
-            .subscribe(() => this.recalculateLayout(true));
+            .subscribe(() => this.recalculateLayout(false));
 
         const viewport = this.viewportRef;
         if (viewport) {
@@ -458,14 +472,17 @@ export class PostsComponent implements AfterViewInit {
     }
 
     private handleRouteState(state: RouteState): void {
-        if (this.consumeInternalRouteUpdate(state)) {
+        if (state.query !== this.activeQuery()) {
+            this.resetForQuery(state);
+            this.routeAnchorAppliedForQuery = state.query;
             return;
         }
 
-        if (state.query !== this.activeQuery()) {
-            this.resetForQuery(state);
+        if (this.routeAnchorAppliedForQuery === state.query) {
             return;
         }
+
+        this.routeAnchorAppliedForQuery = state.query;
 
         const targetOffset = this.resolveAnchorOffset(state.page, state.offset);
         const targetPage = this.offsetToPage(targetOffset);
@@ -498,6 +515,10 @@ export class PostsComponent implements AfterViewInit {
         this.pageCacheStore.reset(state.query);
         this.fastScroller.visible.set(false);
         this.fastScroller.dragging.set(false);
+        this.toolbarHidden.set(false);
+        this.toolbarTransitioning.set(false);
+        this.toolbarScrollAccumulator = 0;
+        this.toolbarToggleLockUntilMs = 0;
 
         const targetOffset = this.resolveAnchorOffset(state.page, state.offset);
         this.pendingAnchorOffset = targetOffset;
@@ -513,43 +534,6 @@ export class PostsComponent implements AfterViewInit {
         this.prefetchAroundPages(new Set([targetPage]));
 
         this.recalculateLayout(false);
-    }
-
-    private consumeInternalRouteUpdate(state: RouteState): boolean {
-        if (!this.lastInternalRouteUpdate) {
-            return false;
-        }
-
-        if (performance.now() > this.internalRouteSyncDeadlineMs) {
-            this.lastInternalRouteUpdate = null;
-            this.internalRouteSyncDeadlineMs = 0;
-            return false;
-        }
-
-        if (state.query !== this.lastInternalRouteUpdate.query) {
-            this.lastInternalRouteUpdate = null;
-            this.internalRouteSyncDeadlineMs = 0;
-            return false;
-        }
-
-        const fallbackOffset = state.offset ?? 0;
-        const effectivePage = state.page ?? this.offsetToPage(fallbackOffset);
-        const effectiveOffset = state.offset ?? (effectivePage - 1) * PostsComponent.PAGE_SIZE;
-
-        const matches =
-            this.lastInternalRouteUpdate.query === state.query
-            && this.lastInternalRouteUpdate.page === effectivePage
-            && this.lastInternalRouteUpdate.offset === effectiveOffset;
-
-        if (matches) {
-            this.lastInternalRouteUpdate = null;
-            this.internalRouteSyncDeadlineMs = 0;
-            return true;
-        }
-
-        this.lastInternalRouteUpdate = null;
-        this.internalRouteSyncDeadlineMs = 0;
-        return false;
     }
 
     private setupHotkeys(): void {
@@ -643,6 +627,7 @@ export class PostsComponent implements AfterViewInit {
         }
 
         this.fastScrollerBubblePage.set(visiblePage);
+        this.updateToolbarVisibility(scrollTop);
 
         this.refreshFastScrollerGeometry();
 
@@ -720,6 +705,14 @@ export class PostsComponent implements AfterViewInit {
         const top = shell.getBoundingClientRect().top;
         const availableHeight = Math.floor(window.innerHeight - top - PostsComponent.VIEWPORT_BOTTOM_GUTTER_PX);
         this.viewportHeightPx.set(Math.max(PostsComponent.MIN_VIEWPORT_HEIGHT_PX, availableHeight));
+        const mobile = window.innerWidth <= PostsComponent.MOBILE_BREAKPOINT_PX;
+        this.isMobileViewport.set(mobile);
+        if (!mobile && this.toolbarHidden()) {
+            this.toolbarHidden.set(false);
+            this.toolbarTransitioning.set(false);
+            this.toolbarScrollAccumulator = 0;
+            this.toolbarToggleLockUntilMs = 0;
+        }
 
         const viewportElement = this.viewportRef?.elementRef.nativeElement ?? shell;
         const viewportStyles = window.getComputedStyle(viewportElement);
@@ -729,9 +722,13 @@ export class PostsComponent implements AfterViewInit {
             return;
         }
 
-        const densityTarget = this.getDensityTarget(this.density());
-        const columns = Math.max(1, Math.floor((width + PostsComponent.GRID_GAP_PX) / (densityTarget + PostsComponent.GRID_GAP_PX)));
-        const tileSize = Math.max(56, (width - (columns - 1) * PostsComponent.GRID_GAP_PX) / columns);
+        const columns = mobile
+            ? this.getMobileColumnsForDensity(width, this.density())
+            : this.getResponsiveColumnsForDensity(width, this.density());
+        const tileSize = Math.max(
+            PostsComponent.MIN_TILE_SIZE_PX,
+            (width - (columns - 1) * PostsComponent.GRID_GAP_PX) / columns
+        );
 
         const columnsChanged = columns !== this.columns();
         const tileSizeChanged = tileSize !== this.tileSizePx();
@@ -755,6 +752,84 @@ export class PostsComponent implements AfterViewInit {
 
             this.tryApplyPendingAnchor();
         });
+    }
+
+    private updateToolbarVisibility(scrollTop: number): void {
+        if (!this.isMobileViewport()) {
+            this.lastToolbarScrollTop = scrollTop;
+            this.toolbarScrollAccumulator = 0;
+            return;
+        }
+
+        const normalizedTop = Math.max(0, scrollTop);
+        if (normalizedTop <= PostsComponent.TOOLBAR_SHOW_TOP_THRESHOLD_PX) {
+            this.lastToolbarScrollTop = normalizedTop;
+            this.toolbarScrollAccumulator = 0;
+            this.setToolbarHidden(false);
+            return;
+        }
+
+        if (performance.now() < this.toolbarToggleLockUntilMs) {
+            this.lastToolbarScrollTop = normalizedTop;
+            this.toolbarScrollAccumulator = 0;
+            return;
+        }
+
+        const delta = normalizedTop - this.lastToolbarScrollTop;
+        this.lastToolbarScrollTop = normalizedTop;
+        if (Math.abs(delta) < 0.5) {
+            return;
+        }
+
+        if (this.toolbarScrollAccumulator === 0 || Math.sign(delta) === Math.sign(this.toolbarScrollAccumulator)) {
+            this.toolbarScrollAccumulator += delta;
+        } else {
+            this.toolbarScrollAccumulator = delta;
+        }
+
+        if (!this.toolbarHidden() && this.toolbarScrollAccumulator >= PostsComponent.TOOLBAR_HIDE_SCROLL_DELTA_PX) {
+            this.toolbarScrollAccumulator = 0;
+            this.setToolbarHidden(true);
+            return;
+        }
+
+        if (this.toolbarHidden() && this.toolbarScrollAccumulator <= -PostsComponent.TOOLBAR_SHOW_SCROLL_DELTA_PX) {
+            this.toolbarScrollAccumulator = 0;
+            this.setToolbarHidden(false);
+        }
+    }
+
+    private setToolbarHidden(hidden: boolean): void {
+        if (this.toolbarHidden() === hidden) {
+            return;
+        }
+
+        this.toolbarHidden.set(hidden);
+        this.toolbarTransitioning.set(true);
+        this.toolbarScrollAccumulator = 0;
+        this.lastToolbarScrollTop = Math.max(0, this.viewportRef?.measureScrollOffset('top') ?? this.lastToolbarScrollTop);
+        this.toolbarToggleLockUntilMs = performance.now()
+            + PostsComponent.TOOLBAR_LAYOUT_SETTLE_MS
+            + PostsComponent.TOOLBAR_TOGGLE_GUARD_MS;
+        this.recalculateLayout(false);
+        this.scheduleToolbarLayoutRecalc();
+    }
+
+    private scheduleToolbarLayoutRecalc(): void {
+        this.clearToolbarLayoutTimer();
+
+        this.toolbarLayoutTimer = setTimeout(() => {
+            this.toolbarLayoutTimer = null;
+            this.toolbarTransitioning.set(false);
+            this.recalculateLayout(false);
+        }, PostsComponent.TOOLBAR_LAYOUT_SETTLE_MS);
+    }
+
+    private clearToolbarLayoutTimer(): void {
+        if (this.toolbarLayoutTimer !== null) {
+            clearTimeout(this.toolbarLayoutTimer);
+            this.toolbarLayoutTimer = null;
+        }
     }
 
     private refreshFastScrollerGeometry(): void {
@@ -810,7 +885,12 @@ export class PostsComponent implements AfterViewInit {
 
     private handleFastScrollerDragSample(offset: number, page: number): void {
         this.latestMeasuredOffset = offset;
-        this.fastScrollerBubblePage.set(page);
+        if (offset !== this.currentOffset()) {
+            this.currentOffset.set(offset);
+        }
+        if (page !== this.fastScrollerBubblePage()) {
+            this.fastScrollerBubblePage.set(page);
+        }
         this.pageCacheStore.setCurrentPageHint(page);
     }
 
@@ -877,9 +957,6 @@ export class PostsComponent implements AfterViewInit {
             return;
         }
 
-        this.lastInternalRouteUpdate = { query, page, offset };
-        this.internalRouteSyncDeadlineMs = performance.now() + 1500;
-
         this.router.navigate([], {
             queryParams: {
                 query: query.length > 0 ? query : null,
@@ -916,6 +993,32 @@ export class PostsComponent implements AfterViewInit {
     private getDensityTarget(density: GridDensity): number {
         const preset = this.densityOptions.find(option => option.value === density);
         return preset?.targetPx ?? 150;
+    }
+
+    private getResponsiveColumnsForDensity(width: number, density: GridDensity): number {
+        const densityTarget = this.getDensityTarget(density);
+        return Math.max(
+            1,
+            Math.floor((width + PostsComponent.GRID_GAP_PX) / (densityTarget + PostsComponent.GRID_GAP_PX))
+        );
+    }
+
+    private getMobileColumnsForDensity(width: number, density: GridDensity): number {
+        const desiredColumns = density === 'compact'
+            ? 4
+            : density === 'comfortable'
+                ? 3
+                : 2;
+
+        const maxColumnsForMinTile = Math.max(
+            1,
+            Math.floor(
+                (width + PostsComponent.GRID_GAP_PX)
+                / (PostsComponent.MIN_TILE_SIZE_PX + PostsComponent.GRID_GAP_PX)
+            )
+        );
+
+        return this.clamp(desiredColumns, 1, maxColumnsForMinTile);
     }
 
     private resolveAnchorOffset(page: number | null, offset: number | null): number {
