@@ -1,7 +1,7 @@
 import { Component, ChangeDetectionStrategy, signal, input, output, effect, HostListener, ElementRef, viewChild, viewChildren, contentChild, TemplateRef, untracked, inject, DestroyRef } from '@angular/core';
 import { NgTemplateOutlet } from '@angular/common';
 import { toObservable, takeUntilDestroyed } from '@angular/core/rxjs-interop';
-import { debounceTime, distinctUntilChanged, filter, switchMap } from 'rxjs';
+import { debounceTime, distinctUntilChanged, filter, fromEvent, switchMap } from 'rxjs';
 import { HotkeysService } from '@services/hotkeys.service';
 
 export interface FocusShortcut {
@@ -25,6 +25,7 @@ export class AutocompleteComponent<T> {
   multi = input<boolean>(false);
   debounce = input<number>(300);
   focusShortcut = input<FocusShortcut | null>(null);
+  showClear = input<boolean>(true);
 
   // Custom Template for items
   itemTemplate = contentChild(TemplateRef);
@@ -85,6 +86,16 @@ export class AutocompleteComponent<T> {
       } else if (!hasSuggestions || !hasFocus) {
         this.manualClose.set(false);
         this.isDropdownOpen.set(false);
+      }
+    });
+
+    // 4. Blur input when user scrolls on mobile (dismiss keyboard)
+    fromEvent(window, 'touchmove', { passive: true }).pipe(
+      takeUntilDestroyed()
+    ).subscribe(() => {
+      if (document.activeElement === this.inputElement()?.nativeElement) {
+        this.blurInput();
+        this.closeDropdown();
       }
     });
   }
@@ -180,6 +191,15 @@ export class AutocompleteComponent<T> {
     this.isDropdownOpen.set(false);
     this.selectedIndex.set(-1);
     this.manualClose.set(true);
+  }
+
+  clearInput() {
+    this.inputValue.set('');
+    this.valueChange.emit('');
+    this.queryChange.emit('');
+    this.searchTrigger.emit('');
+    this.closeDropdown();
+    this.focusInput();
   }
 
   @HostListener('document:click', ['$event'])

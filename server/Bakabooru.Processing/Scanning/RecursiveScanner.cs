@@ -1,4 +1,5 @@
 using Bakabooru.Core.Interfaces;
+using Bakabooru.Core.Results;
 using Bakabooru.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
@@ -21,7 +22,8 @@ public class RecursiveScanner : IScannerService
         _scopeFactory = scopeFactory;
         _librarySyncProcessor = librarySyncProcessor;
     }
-    public async Task ScanAllLibrariesAsync(IProgress<float>? progress = null, IProgress<string>? status = null, CancellationToken cancellationToken = default)
+
+    public async Task<ScanResult> ScanAllLibrariesAsync(IProgress<float>? progress = null, IProgress<string>? status = null, CancellationToken cancellationToken = default)
     {
         using var scope = _scopeFactory.CreateScope();
         var dbContext = scope.ServiceProvider.GetRequiredService<BakabooruDbContext>();
@@ -33,11 +35,12 @@ public class RecursiveScanner : IScannerService
         {
             status?.Report("No libraries configured.");
             progress?.Report(100);
-            return;
+            return ScanResult.Empty;
         }
         
         int totalLibraries = libraries.Count;
         int currentLibraryIndex = 0;
+        var totalResult = ScanResult.Empty;
 
         foreach (var library in libraries)
         {
@@ -59,9 +62,12 @@ public class RecursiveScanner : IScannerService
                 }
             });
 
-            await _librarySyncProcessor.ProcessDirectoryAsync(library, library.Path, subProgress, status, cancellationToken);
+            var libraryResult = await _librarySyncProcessor.ProcessDirectoryAsync(library, library.Path, subProgress, status, cancellationToken);
+            totalResult += libraryResult;
             currentLibraryIndex++;
         }
+
+        return totalResult;
     }
 
     public async Task ScanLibraryAsync(int libraryId, IProgress<float>? progress = null, IProgress<string>? status = null, CancellationToken cancellationToken = default)

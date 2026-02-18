@@ -55,14 +55,14 @@ public class ScanAllLibrariesJob : IJob
             Total = 100
         });
 
-        await scannerService.ScanAllLibrariesAsync(progress, status, context.CancellationToken);
+        var result = await scannerService.ScanAllLibrariesAsync(progress, status, context.CancellationToken);
 
         context.State.Report(new JobState
         {
             Phase = "Completed",
             Processed = 100,
             Total = 100,
-            Summary = "Finished scanning all configured libraries."
+            Summary = $"Scanned {result.Scanned} files: {result.Added} added, {result.Updated} updated, {result.Moved} moved, {result.Removed} removed"
         });
     }
 }

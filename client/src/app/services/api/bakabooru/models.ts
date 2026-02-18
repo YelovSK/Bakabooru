@@ -81,6 +81,7 @@ export interface BakabooruTagDto {
 export interface BakabooruPostDto {
     id: number;
     libraryId: number;
+    libraryName: string | null;
     relativePath: string;
     contentHash: string;
     sizeBytes: number;

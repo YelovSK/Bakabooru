@@ -2,6 +2,7 @@ using Bakabooru.Core;
 using Bakabooru.Core.Config;
 using Bakabooru.Core.Entities;
 using Bakabooru.Core.Interfaces;
+using Bakabooru.Core.Results;
 using Bakabooru.Core.Paths;
 using Bakabooru.Data;
 using Microsoft.EntityFrameworkCore;
@@ -52,7 +53,7 @@ public class LibrarySyncProcessor : ILibrarySyncProcessor
         long NewSize,
         DateTime NewMtime);
 
-    public async Task ProcessDirectoryAsync(Library library, string directoryPath, IProgress<float>? progress = null, IProgress<string>? status = null, CancellationToken cancellationToken = default)
+    public async Task<ScanResult> ProcessDirectoryAsync(Library library, string directoryPath, IProgress<float>? progress = null, IProgress<string>? status = null, CancellationToken cancellationToken = default)
     {
         status?.Report($"Counting files in {directoryPath}...");
         _logger.LogInformation("Counting files in {Path}...", directoryPath);
@@ -132,12 +133,14 @@ public class LibrarySyncProcessor : ILibrarySyncProcessor
         }
         _logger.LogInformation("Loaded {Count} existing posts and {HashCount} unique hashes.", existingPosts.Count, knownHashes.Count);
 
+
         // Track which paths we see on disk for orphan detection
         var seenPaths = new ConcurrentDictionary<string, byte>(StringComparer.OrdinalIgnoreCase);
         // Track posts that need updating (changed files)
         var postsToUpdate = new ConcurrentBag<(int Id, string NewHash, long NewSize, DateTime NewMtime, bool HashChanged)>();
         // Track new paths that were deduplicated by hash and may actually be moves.
         var potentialMoves = new ConcurrentBag<PotentialMoveCandidate>();
+        int newPostCount = 0;
 
         status?.Report($"Scanning files...");
         _logger.LogInformation("Streaming files from {Path}...", directoryPath);
@@ -154,7 +157,7 @@ public class LibrarySyncProcessor : ILibrarySyncProcessor
 
         await Parallel.ForEachAsync(items, parallelOptions, async (item, ct) =>
         {
-            await ProcessFileOptimizedAsync(
+            var added = await ProcessFileOptimizedAsync(
                 library,
                 item,
                 existingPosts,
@@ -165,6 +168,7 @@ public class LibrarySyncProcessor : ILibrarySyncProcessor
                 postsToUpdate,
                 potentialMoves,
                 ct);
+            if (added) Interlocked.Increment(ref newPostCount);
             Interlocked.Increment(ref scanned);
 
             if (scanned % 10 == 0 || scanned == total)
@@ -270,7 +274,9 @@ public class LibrarySyncProcessor : ILibrarySyncProcessor
 
         progress?.Report(100);
         status?.Report(
-            $"Finished scanning {library.Name} — {scanned} files, {postsToUpdate.Count} updated, {postsToMove.Count} moved, {orphanPaths.Count} orphans removed");
+            $"Finished scanning {library.Name} — {scanned} files, {newPostCount} added, {postsToUpdate.Count} updated, {postsToMove.Count} moved, {orphanPaths.Count} orphans removed");
+
+        return new ScanResult(scanned, newPostCount, postsToUpdate.Count, postsToMove.Count, orphanPaths.Count);
     }
 
     public async Task ProcessFileAsync(Library library, MediaSourceItem item, CancellationToken cancellationToken)
@@ -291,7 +297,7 @@ public class LibrarySyncProcessor : ILibrarySyncProcessor
         await EnqueuePostAsync(library, item, hash, cancellationToken);
     }
 
-    private async Task ProcessFileOptimizedAsync(
+    private async Task<bool> ProcessFileOptimizedAsync(
         Library library,
         MediaSourceItem item,
         Dictionary<string, ExistingPostInfo> existingPosts,
@@ -308,13 +314,13 @@ public class LibrarySyncProcessor : ILibrarySyncProcessor
         var normalizedRelativePath = RelativePathMatcher.NormalizePath(relativePath);
         if (ignoredPathPrefixes.Any(prefix => RelativePathMatcher.IsWithinPrefix(normalizedRelativePath, prefix)))
         {
-            return;
+            return false;
         }
 
         seenPaths.TryAdd(relativePath, 0);
 
         // Skip files on the exclusion list (e.g. duplicates resolved by user)
-        if (excludedPaths.Contains(relativePath)) return;
+        if (excludedPaths.Contains(relativePath)) return false;
 
         // Check if file already exists in DB
         if (existingPosts.TryGetValue(relativePath, out var existing))
@@ -323,11 +329,11 @@ public class LibrarySyncProcessor : ILibrarySyncProcessor
             var fileChanged = item.SizeBytes != existing.SizeBytes
                            || Math.Abs((item.LastModifiedUtc - existing.FileModifiedDate).TotalSeconds) > 1;
 
-            if (!fileChanged) return; // File unchanged, skip
+            if (!fileChanged) return false; // File unchanged, skip
 
             // File has changed — re-hash and queue for update
             var newHash = await ComputeHashAsync(item.FullPath, cancellationToken);
-            if (string.IsNullOrEmpty(newHash)) return;
+            if (string.IsNullOrEmpty(newHash)) return false;
 
             var hashChanged = !string.Equals(newHash, existing.Hash, StringComparison.OrdinalIgnoreCase);
             postsToUpdate.Add((existing.Id, newHash, item.SizeBytes, item.LastModifiedUtc, hashChanged));
@@ -339,22 +345,23 @@ public class LibrarySyncProcessor : ILibrarySyncProcessor
                 // Update the known hash set
                 knownHashes.TryAdd(newHash, 0);
             }
-            return;
+            return false;
         }
 
         // New file — hash and ingest
         var hash = await ComputeHashAsync(item.FullPath, cancellationToken);
-        if (string.IsNullOrEmpty(hash)) return;
+        if (string.IsNullOrEmpty(hash)) return false;
 
         // Check global deduplication
         if (!knownHashes.TryAdd(hash, 0))
         {
             potentialMoves.Add(new PotentialMoveCandidate(relativePath, hash, item.SizeBytes, item.LastModifiedUtc));
             _logger.LogDebug("Skipping duplicate content {Hash} at {Path}", hash, relativePath);
-            return;
+            return false;
         }
 
         await EnqueuePostAsync(library, item, hash, cancellationToken);
+        return true;
     }
 
     private async Task<string> ComputeHashAsync(string filePath, CancellationToken cancellationToken)

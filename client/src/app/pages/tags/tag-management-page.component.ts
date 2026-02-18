@@ -13,6 +13,7 @@ import { FormDropdownComponent, FormDropdownOption } from '@shared/components/dr
 import { DataTableColumn, DataTableComponent } from '@shared/components/data-table/data-table.component';
 import { ModalComponent } from '@shared/components/modal/modal.component';
 import { ConfirmService } from '@services/confirm.service';
+import { AutocompleteComponent } from '@shared/components/autocomplete/autocomplete.component';
 
 type EditTagModel = {
   id: number;
@@ -42,6 +43,7 @@ type EditCategoryModel = {
     FormDropdownComponent,
     DataTableComponent,
     ModalComponent,
+    AutocompleteComponent,
   ],
   templateUrl: './tag-management-page.component.html',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -112,6 +114,10 @@ export class TagManagementPageComponent implements OnInit {
   editTag = signal<EditTagModel | null>(null);
   editCategory = signal<EditCategoryModel | null>(null);
 
+  // Merge tag autocomplete
+  mergeTagSuggestions = signal<ManagedTag[]>([]);
+  mergeTargetId = signal<number | null>(null);
+
   ngOnInit(): void {
     this.loadTags();
     this.loadCategories();
@@ -175,6 +181,8 @@ export class TagManagementPageComponent implements OnInit {
       categoryId: tag.categoryId,
       mergeTargetName: '',
     });
+    this.mergeTargetId.set(null);
+    this.mergeTagSuggestions.set([]);
   }
 
   closeEditTagModal(): void {
@@ -206,39 +214,49 @@ export class TagManagementPageComponent implements OnInit {
     });
   }
 
+  onMergeQueryChange(query: string): void {
+    if (!query || query.length < 1) {
+      this.mergeTagSuggestions.set([]);
+      return;
+    }
+    this.api.getManagedTags(query, 0, 10).subscribe({
+      next: result => {
+        const model = this.editTag();
+        this.mergeTagSuggestions.set(
+          result.results.filter(tag => tag.id !== model?.id)
+        );
+      },
+    });
+  }
+
+  onMergeSelection(tag: ManagedTag): void {
+    this.mergeTargetId.set(tag.id);
+    this.updateEditTag({ mergeTargetName: tag.name });
+  }
+
   mergeTag(): void {
     const model = this.editTag();
     if (!model) return;
 
-    const targetName = model.mergeTargetName.trim().toLowerCase();
-    if (!targetName) {
-      this.toast.warning('Enter target tag name');
+    const targetId = this.mergeTargetId();
+    if (!targetId) {
+      this.toast.warning('Select a target tag from the suggestions');
+      return;
+    }
+    if (targetId === model.id) {
+      this.toast.warning('Source and target tags are the same');
       return;
     }
 
-    this.api.getManagedTags(targetName, 0, 30).subscribe({
-      next: result => {
-        const target = result.results.find(tag => tag.name.toLowerCase() === targetName);
-        if (!target) {
-          this.toast.error(`Target tag "${targetName}" not found`);
-          return;
-        }
-        if (target.id === model.id) {
-          this.toast.warning('Source and target tags are the same');
-          return;
-        }
-
-        this.api.mergeTag(model.id, target.id).subscribe({
-          next: () => {
-            this.toast.success('Tag merged');
-            this.editTag.set(null);
-            this.loadTags();
-            this.loadCategories();
-          },
-          error: err => this.toast.error(err?.error || 'Failed to merge tag'),
-        });
+    this.api.mergeTag(model.id, targetId).subscribe({
+      next: () => {
+        this.toast.success('Tag merged');
+        this.editTag.set(null);
+        this.mergeTargetId.set(null);
+        this.loadTags();
+        this.loadCategories();
       },
-      error: () => this.toast.error('Failed to resolve target tag'),
+      error: err => this.toast.error(err?.error || 'Failed to merge tag'),
     });
   }
 

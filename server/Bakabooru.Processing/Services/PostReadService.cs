@@ -132,6 +132,7 @@ public class PostReadService
             {
                 Id = postEntity.Id,
                 LibraryId = postEntity.LibraryId,
+                LibraryName = postEntity.Library.Name,
                 RelativePath = postEntity.RelativePath,
                 ContentHash = postEntity.ContentHash,
                 SizeBytes = postEntity.SizeBytes,

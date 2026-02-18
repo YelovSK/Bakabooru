@@ -4,16 +4,10 @@
         [class.posts-toolbar-hidden]="toolbarHidden()">
         <div class="flex flex-col gap-[0.55rem] md:gap-3 lg:flex-row lg:items-center lg:justify-between">
             <div class="relative z-20 w-full lg:max-w-[560px]">
-                <app-autocomplete
-                    [value]="currentSearchValue()"
-                    [suggestions]="tagSuggestions()"
-                    [multi]="true"
-                    [focusShortcut]="{ modifier: 'ctrl', key: 'f' }"
-                    placeholder="Search posts..."
-                    (queryChange)="onQueryChange($event)"
-                    (selection)="onSelection($event)"
-                    (searchTrigger)="onSearch($event)"
-                    (valueChange)="currentSearchValue.set($event)">
+                <app-autocomplete [value]="currentSearchValue()" [suggestions]="tagSuggestions()" [multi]="true"
+                    [focusShortcut]="{ modifier: 'ctrl', key: 'f' }" placeholder="Search posts..."
+                    (queryChange)="onQueryChange($event)" (selection)="onSelection($event)"
+                    (searchTrigger)="onSearch($event)" (valueChange)="currentSearchValue.set($event)">
                     <ng-template let-tag>
                         <div class="flex w-full items-center justify-between gap-3">
                             <span class="truncate text-accent-primary">{{ tag.name }}</span>
@@ -23,27 +17,29 @@
                 </app-autocomplete>
             </div>
 
-            <div class="flex w-full min-w-0 flex-nowrap items-stretch justify-between gap-1.5 lg:w-auto lg:flex-wrap lg:items-center lg:justify-end lg:gap-2">
-                <div class="inline-flex h-[1.9rem] min-h-[1.9rem] flex-none items-center gap-1 rounded-lg border border-glass-border bg-bg-primary p-[0.2rem] box-border md:h-[2.05rem] md:min-h-[2.05rem] md:gap-2 md:p-0">
+            <div
+                class="flex w-full min-w-0 flex-nowrap items-stretch justify-between gap-1.5 lg:w-auto lg:flex-wrap lg:items-center lg:justify-end lg:gap-2">
+                <div
+                    class="inline-flex h-[1.9rem] min-h-[1.9rem] flex-none items-center gap-1 rounded-lg border border-glass-border bg-bg-primary p-[0.2rem] box-border md:h-[2.05rem] md:min-h-[2.05rem] md:gap-2 md:p-0">
                     @for (densityOption of densityOptions; track densityOption.value) {
-                        <button
-                            type="button"
-                            class="inline-flex h-full items-center justify-center whitespace-nowrap rounded-[0.45rem] border border-transparent bg-transparent px-[0.56rem] text-[0.72rem] font-semibold text-text-muted transition-all duration-150 hover:bg-white/5 hover:text-text-primary md:rounded-[0.55rem] md:px-[0.72rem] md:text-[0.76rem]"
-                            [style.backgroundColor]="isDensitySelected(densityOption.value) ? 'rgba(56, 189, 248, 0.22)' : null"
-                            [style.borderColor]="isDensitySelected(densityOption.value) ? 'rgba(56, 189, 248, 0.52)' : null"
-                            [style.color]="isDensitySelected(densityOption.value) ? 'var(--color-accent-primary)' : null"
-                            [style.boxShadow]="isDensitySelected(densityOption.value) ? '0 0 0 1px rgba(56, 189, 248, 0.18) inset' : null"
-                            (click)="onDensitySelect(densityOption.value)">
-                            {{ densityOption.label }}
-                        </button>
+                    <button type="button"
+                        class="inline-flex h-full items-center justify-center whitespace-nowrap rounded-[0.45rem] border border-transparent bg-transparent px-[0.56rem] text-[0.72rem] font-semibold text-text-muted transition-all duration-150 hover:bg-white/5 hover:text-text-primary md:rounded-[0.55rem] md:px-[0.72rem] md:text-[0.76rem]"
+                        [style.backgroundColor]="isDensitySelected(densityOption.value) ? 'rgba(56, 189, 248, 0.22)' : null"
+                        [style.borderColor]="isDensitySelected(densityOption.value) ? 'rgba(56, 189, 248, 0.52)' : null"
+                        [style.color]="isDensitySelected(densityOption.value) ? 'var(--color-accent-primary)' : null"
+                        [style.boxShadow]="isDensitySelected(densityOption.value) ? '0 0 0 1px rgba(56, 189, 248, 0.18) inset' : null"
+                        (click)="onDensitySelect(densityOption.value)">
+                        {{ densityOption.label }}
+                    </button>
                     }
                 </div>
 
-                <div class="inline-flex h-[1.9rem] min-h-[1.9rem] flex-none items-center overflow-hidden whitespace-nowrap rounded-[0.7rem] border border-glass-border bg-bg-primary px-[0.56rem] text-[0.74rem] font-semibold text-text-muted text-ellipsis box-border md:h-[2.05rem] md:min-h-[2.05rem] md:px-[0.7rem] md:text-[0.8rem]">
+                <div
+                    class="inline-flex h-[1.9rem] min-h-[1.9rem] flex-none items-center overflow-hidden whitespace-nowrap rounded-[0.7rem] border border-glass-border bg-bg-primary px-[0.56rem] text-[0.74rem] font-semibold text-text-muted text-ellipsis box-border md:h-[2.05rem] md:min-h-[2.05rem] md:px-[0.7rem] md:text-[0.8rem]">
                     @if (totalCount() !== null) {
-                        <span>{{ totalCount()! | number }} posts</span>
+                    <span>{{ totalCount()! | number }} posts</span>
                     } @else {
-                        <span>Loading...</span>
+                    <span>Loading...</span>
                     }
                 </div>
             </div>
@@ -51,143 +47,130 @@
     </header>
 
     @if (hasNoResults()) {
-        <div class="rounded-xl border border-glass-border bg-glass-bg p-10 text-center text-text-muted">
-            No posts match your search.
-        </div>
-    } @else {
-        <div
-            #viewportShell
-            class="posts-viewport-shell relative min-h-[260px] px-3"
-            [class.posts-scrolling]="isScrolling() || fastScrollerDragging()">
+    <div class="rounded-xl border border-glass-border bg-glass-bg p-10 text-center text-text-muted">
+        No posts match your search.
+    </div>
+    }
 
-            <cdk-virtual-scroll-viewport
-                #postsViewport
-                appPostsCyclicGridStrategy
-                class="posts-virtual-viewport h-full w-full overflow-auto overscroll-contain pr-[0.2rem] [overflow-anchor:none] [scrollbar-width:none]"
-                [appPostsCyclicGridStrategyPostRowHeightPx]="rowItemHeightPx()"
-                [appPostsCyclicGridStrategySeparatorRowHeightPx]="separatorRowHeightPx()"
-                [appPostsCyclicGridStrategyRowCount]="virtualRowCount()"
-                [appPostsCyclicGridStrategyTotalCount]="totalCount()"
-                [appPostsCyclicGridStrategyColumns]="columns()"
-                [appPostsCyclicGridStrategyPageSize]="pageSize"
-                [appPostsCyclicGridStrategyAnchorPageHint]="anchorPageHint()"
-                [appPostsCyclicGridStrategyMinBufferRows]="virtualMinBufferRows()"
-                [appPostsCyclicGridStrategyMaxBufferRows]="virtualMaxBufferRows()"
-                [style.height.px]="viewportHeightPx()">
+    <div #viewportShell class="posts-viewport-shell relative min-h-[260px] px-3"
+        [class.posts-scrolling]="isScrolling() || fastScrollerDragging()" [class.hidden]="hasNoResults()">
 
-                <div
-                    class="virtual-row relative flex w-full items-stretch box-border [contain:layout_paint_style]"
-                    *cdkVirtualFor="let _rowItem of virtualRowDataSource; let rowIndex = index; trackBy: trackVirtualRow"
-                    [style.height.px]="getRowHeightPx(rowIndex)"
-                    [class.items-center]="isSeparatorRow(rowIndex)">
+        <cdk-virtual-scroll-viewport #postsViewport appPostsCyclicGridStrategy
+            class="posts-virtual-viewport h-full w-full overflow-auto overscroll-contain pr-[0.2rem] [overflow-anchor:none] [scrollbar-width:none]"
+            [appPostsCyclicGridStrategyPostRowHeightPx]="rowItemHeightPx()"
+            [appPostsCyclicGridStrategySeparatorRowHeightPx]="separatorRowHeightPx()"
+            [appPostsCyclicGridStrategyRowCount]="virtualRowCount()"
+            [appPostsCyclicGridStrategyTotalCount]="totalCount()" [appPostsCyclicGridStrategyColumns]="columns()"
+            [appPostsCyclicGridStrategyPageSize]="pageSize"
+            [appPostsCyclicGridStrategyAnchorPageHint]="anchorPageHint()"
+            [appPostsCyclicGridStrategyMinBufferRows]="virtualMinBufferRows()"
+            [appPostsCyclicGridStrategyMaxBufferRows]="virtualMaxBufferRows()" [style.height.px]="viewportHeightPx()">
 
-                    @if (getVirtualRow(rowIndex); as row) {
-                        @if (row.kind === 'separator') {
-                            <div class="flex h-full w-full items-center gap-[0.6rem] box-border">
-                                <span class="h-px flex-1 bg-[linear-gradient(90deg,transparent,rgba(148,163,184,0.34),transparent)]"></span>
-                                <span class="rounded-full border border-slate-400/30 bg-slate-950/80 px-[0.72rem] py-[0.3rem] text-[0.73rem] leading-none font-bold uppercase tracking-[0.09em] text-text-muted">Page {{ row.page }}</span>
-                                <span class="h-px flex-1 bg-[linear-gradient(90deg,transparent,rgba(148,163,184,0.34),transparent)]"></span>
-                            </div>
-                        } @else {
-                            <div
-                                class="grid h-full w-full box-border content-start [contain:layout_paint_style]"
-                                [style.gridTemplateColumns]="gridTemplateColumns()"
-                                [style.columnGap.px]="gridGapPx"
-                                [style.paddingTop.px]="gridGapPx / 2"
-                                [style.paddingBottom.px]="gridGapPx / 2">
-                                @for (cell of getRowCells(row); track cell.trackKey) {
-                                    @if (cell.kind === 'post') {
-                                        @if (cell.post; as post) {
-                                            <a
-                                                class="post-tile group relative block aspect-square overflow-hidden rounded-xl border border-slate-400/12 bg-bg-secondary [contain:layout_paint_style] transition-[transform,box-shadow,border-color] duration-200 hover:z-[2] hover:-translate-y-[1px] hover:scale-[1.012] hover:border-sky-400/50 hover:shadow-[0_10px_22px_rgba(15,23,42,0.36)]"
-                                                [routerLink]="appLinks.post(post.id)"
-                                                [queryParams]="{ query: activeQuery() || null }">
-                                                <img
-                                                    [src]="environment.mediaBaseUrl + post.thumbnailUrl"
-                                                    [alt]="'Post ' + post.id"
-                                                    class="block h-full w-full object-cover"
-                                                    decoding="async"
-                                                    [attr.loading]="row.page === currentPage() && row.rowInPage === 0 ? 'eager' : 'lazy'" />
+            <div class="virtual-row relative flex w-full items-stretch box-border [contain:layout_paint_style]"
+                *cdkVirtualFor="let _rowItem of virtualRowDataSource; let rowIndex = index; trackBy: trackVirtualRow"
+                [style.height.px]="getRowHeightPx(rowIndex)" [class.items-center]="isSeparatorRow(rowIndex)">
 
-                                                @if (post.isFavorite) {
-                                                    <div class="pointer-events-none absolute top-2 left-2 z-[5] inline-flex h-[1.78rem] w-[1.78rem] items-center justify-center rounded-[0.45rem] border border-white/18 bg-slate-900/90 text-status-error">
-                                                        <svg viewBox="0 0 24 24" fill="currentColor" class="h-4 w-4">
-                                                            <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54z" />
-                                                        </svg>
-                                                    </div>
-                                                }
+                @if (getVirtualRow(rowIndex); as row) {
+                @if (row.kind === 'separator') {
+                <div class="flex h-full w-full items-center gap-[0.6rem] box-border">
+                    <span
+                        class="h-px flex-1 bg-[linear-gradient(90deg,transparent,rgba(148,163,184,0.34),transparent)]"></span>
+                    <span
+                        class="rounded-full border border-slate-400/30 bg-slate-950/80 px-[0.72rem] py-[0.3rem] text-[0.73rem] leading-none font-bold uppercase tracking-[0.09em] text-text-muted">Page
+                        {{ row.page }}</span>
+                    <span
+                        class="h-px flex-1 bg-[linear-gradient(90deg,transparent,rgba(148,163,184,0.34),transparent)]"></span>
+                </div>
+                } @else {
+                <div class="grid h-full w-full box-border content-start [contain:layout_paint_style]"
+                    [style.gridTemplateColumns]="gridTemplateColumns()" [style.columnGap.px]="gridGapPx"
+                    [style.paddingTop.px]="gridGapPx / 2" [style.paddingBottom.px]="gridGapPx / 2">
+                    @for (cell of getRowCells(row); track cell.trackKey) {
+                    @if (cell.kind === 'post') {
+                    @if (cell.post; as post) {
+                    <a class="post-tile group relative block aspect-square overflow-hidden rounded-xl border border-slate-400/12 bg-bg-secondary [contain:layout_paint_style] transition-[transform,box-shadow,border-color] duration-200 hover:z-[2] hover:-translate-y-[1px] hover:scale-[1.012] hover:border-sky-400/50 hover:shadow-[0_10px_22px_rgba(15,23,42,0.36)]"
+                        [routerLink]="appLinks.post(post.id)" [queryParams]="{ query: activeQuery() || null }">
+                        <img [src]="environment.mediaBaseUrl + post.thumbnailUrl" [alt]="'Post ' + post.id"
+                            class="block h-full w-full object-cover" decoding="async"
+                            [attr.loading]="row.page === currentPage() && row.rowInPage === 0 ? 'eager' : 'lazy'" />
 
-                                                @switch (getMediaType(post.contentType)) {
-                                                    @case ('video') {
-                                                        <div class="pointer-events-none absolute bottom-2 right-2 z-[5] inline-flex h-[1.78rem] w-[1.78rem] items-center justify-center rounded-[0.45rem] border border-white/18 bg-slate-900/90 text-accent-primary">
-                                                            <svg viewBox="0 0 24 24" fill="currentColor" class="h-4 w-4">
-                                                                <path d="M17 10.5V7c0-.55-.45-1-1-1H4c-.55 0-1 .45-1 1v10c0 .55.45 1 1 1h12c.55 0 1-.45 1-1v-3.5l4 4v-11l-4 4z" />
-                                                            </svg>
-                                                        </div>
-                                                    }
-                                                    @case ('animation') {
-                                                        <div class="pointer-events-none absolute bottom-2 right-2 z-[5] inline-flex h-[1.78rem] w-[1.78rem] items-center justify-center rounded-[0.45rem] border border-white/18 bg-slate-900/90 text-accent-primary">
-                                                            <svg viewBox="0 0 24 24" fill="currentColor" class="h-4 w-4">
-                                                                <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 14.5v-9l6 4.5-6 4.5z" />
-                                                            </svg>
-                                                        </div>
-                                                    }
-                                                }
-
-                                                <div class="post-overlay pointer-events-none absolute inset-x-0 bottom-0 z-[4] flex min-h-[2.35rem] items-end bg-gradient-to-t from-black/82 to-transparent px-[0.58rem] py-2 text-[0.74rem] font-bold text-slate-50 opacity-0 transition-opacity duration-150 group-hover:opacity-100">
-                                                    <span>#{{ post.id }}</span>
-                                                </div>
-                                            </a>
-                                        }
-                                    } @else if (cell.kind === 'skeleton') {
-                                        <div class="aspect-square rounded-xl border border-slate-400/18 bg-[#22324a] [contain:layout_paint_style]"></div>
-                                    } @else {
-                                        <!-- Leave this empty -->
-                                    }
-                                }
-                            </div>
-
-                            @if (row.rowInPage === 0 && getPageStatus(row.page) === 'error') {
-                                <button
-                                    type="button"
-                                    class="absolute top-[0.35rem] right-[0.35rem] z-[7] rounded-full border border-red-400/70 bg-red-900/75 px-[0.55rem] py-[0.3rem] text-[0.67rem] leading-none font-bold text-red-200"
-                                    (click)="retryPage(row.page)">
-                                    Retry page {{ row.page }}
-                                </button>
-                            }
+                        @if (post.isFavorite) {
+                        <div
+                            class="pointer-events-none absolute top-2 left-2 z-[5] inline-flex h-[1.78rem] w-[1.78rem] items-center justify-center rounded-[0.45rem] border border-white/18 bg-slate-900/90 text-status-error">
+                            <svg viewBox="0 0 24 24" fill="currentColor" class="h-4 w-4">
+                                <path
+                                    d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54z" />
+                            </svg>
+                        </div>
                         }
+
+                        @switch (getMediaType(post.contentType)) {
+                        @case ('video') {
+                        <div
+                            class="pointer-events-none absolute bottom-2 right-2 z-[5] inline-flex h-[1.78rem] w-[1.78rem] items-center justify-center rounded-[0.45rem] border border-white/18 bg-slate-900/90 text-accent-primary">
+                            <svg viewBox="0 0 24 24" fill="currentColor" class="h-4 w-4">
+                                <path
+                                    d="M17 10.5V7c0-.55-.45-1-1-1H4c-.55 0-1 .45-1 1v10c0 .55.45 1 1 1h12c.55 0 1-.45 1-1v-3.5l4 4v-11l-4 4z" />
+                            </svg>
+                        </div>
+                        }
+                        @case ('animation') {
+                        <div
+                            class="pointer-events-none absolute bottom-2 right-2 z-[5] inline-flex h-[1.78rem] w-[1.78rem] items-center justify-center rounded-[0.45rem] border border-white/18 bg-slate-900/90 text-accent-primary">
+                            <svg viewBox="0 0 24 24" fill="currentColor" class="h-4 w-4">
+                                <path
+                                    d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 14.5v-9l6 4.5-6 4.5z" />
+                            </svg>
+                        </div>
+                        }
+                        }
+
+                        <div
+                            class="post-overlay pointer-events-none absolute inset-x-0 bottom-0 z-[4] flex min-h-[2.35rem] items-end bg-gradient-to-t from-black/82 to-transparent px-[0.58rem] py-2 text-[0.74rem] font-bold text-slate-50 opacity-0 transition-opacity duration-150 group-hover:opacity-100">
+                            <span>#{{ post.id }}</span>
+                        </div>
+                    </a>
+                    }
+                    } @else if (cell.kind === 'skeleton') {
+                    <div
+                        class="aspect-square rounded-xl border border-slate-400/18 bg-[#22324a] [contain:layout_paint_style]">
+                    </div>
+                    } @else {
+                    <!-- Leave this empty -->
+                    }
                     }
                 </div>
-            </cdk-virtual-scroll-viewport>
 
-            <div
-                class="fast-scroller-hover-zone"
-                aria-hidden="true">
+                @if (row.rowInPage === 0 && getPageStatus(row.page) === 'error') {
+                <button type="button"
+                    class="absolute top-[0.35rem] right-[0.35rem] z-[7] rounded-full border border-red-400/70 bg-red-900/75 px-[0.55rem] py-[0.3rem] text-[0.67rem] leading-none font-bold text-red-200"
+                    (click)="retryPage(row.page)">
+                    Retry page {{ row.page }}
+                </button>
+                }
+                }
+                }
             </div>
+        </cdk-virtual-scroll-viewport>
 
-            <div
-                #fastScrollerRail
-                class="fast-scroller-rail"
-                [class.fast-scroller-visible]="fastScrollerVisible()"
-                [class.fast-scroller-dragging]="fastScrollerDragging()"
-                (pointerdown)="onFastScrollerPointerDown($event)"
-                (pointermove)="onFastScrollerPointerMove($event)"
-                (pointerup)="onFastScrollerPointerUp($event)"
-                (pointercancel)="onFastScrollerPointerCancel($event)">
-                <div
-                    class="fast-scroller-thumb absolute top-0 left-1/2 w-[6px] -translate-x-1/2 rounded-full bg-gradient-to-b from-sky-400/95 to-sky-500/95 shadow-[0_5px_14px_rgba(2,132,199,0.42)]"
-                    [style.height.px]="fastScrollerThumbHeightPx()"
-                    [style.transform]="'translateY(' + fastScrollerThumbTopPx() + 'px)'">
-                </div>
-            </div>
-
-            @if (showFastScrollerBubble()) {
-                <div
-                    class="pointer-events-none absolute top-0 right-[31px] z-[36] inline-flex h-9 min-w-[74px] items-center justify-center whitespace-nowrap rounded-full border border-sky-300/45 bg-slate-900/92 px-[0.72rem] text-[0.74rem] font-bold text-text-secondary"
-                    [style.transform]="'translateY(' + fastScrollerBubbleTopPx() + 'px)'">
-                    Page {{ fastScrollerBubblePage() }}
-                </div>
-            }
+        <div class="fast-scroller-hover-zone" aria-hidden="true">
         </div>
-    }
+
+        <div #fastScrollerRail class="fast-scroller-rail" [class.fast-scroller-visible]="fastScrollerVisible()"
+            [class.fast-scroller-dragging]="fastScrollerDragging()" (pointerdown)="onFastScrollerPointerDown($event)"
+            (pointermove)="onFastScrollerPointerMove($event)" (pointerup)="onFastScrollerPointerUp($event)"
+            (pointercancel)="onFastScrollerPointerCancel($event)">
+            <div class="fast-scroller-thumb absolute top-0 left-1/2 w-[6px] -translate-x-1/2 rounded-full bg-gradient-to-b from-sky-400/95 to-sky-500/95 shadow-[0_5px_14px_rgba(2,132,199,0.42)]"
+                [style.height.px]="fastScrollerThumbHeightPx()"
+                [style.transform]="'translateY(' + fastScrollerThumbTopPx() + 'px)'">
+            </div>
+        </div>
+
+        @if (showFastScrollerBubble()) {
+        <div class="pointer-events-none absolute top-0 right-[31px] z-[36] inline-flex h-9 min-w-[74px] items-center justify-center whitespace-nowrap rounded-full border border-sky-300/45 bg-slate-900/92 px-[0.72rem] text-[0.74rem] font-bold text-text-secondary"
+            [style.transform]="'translateY(' + fastScrollerBubbleTopPx() + 'px)'">
+            Page {{ fastScrollerBubblePage() }}
+        </div>
+        }
+    </div>
 </section>

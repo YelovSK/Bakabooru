@@ -439,6 +439,10 @@ export class PostDetailComponent {
   private navigateToPost(post: BakabooruPostDto | null | undefined) {
     if (!post) return;
 
+    if (this.editService.isEditing()) {
+      this.editService.cancelEditing();
+    }
+
     this.router.navigate(AppLinks.post(post.id), {
       queryParams: { query: this.query() },
       replaceUrl: true

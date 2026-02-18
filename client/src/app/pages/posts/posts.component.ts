@@ -122,9 +122,9 @@ export class PostsComponent implements AfterViewInit {
     currentSearchValue = signal('');
 
     readonly densityOptions: ReadonlyArray<{ value: GridDensity; label: string; targetPx: number }> = [
-        { value: 'compact', label: 'Compact', targetPx: 110 },
-        { value: 'comfortable', label: 'Comfortable', targetPx: 150 },
-        { value: 'cozy', label: 'Cozy', targetPx: 190 },
+        { value: 'compact', label: 'Compact', targetPx: 150 },
+        { value: 'comfortable', label: 'Comfortable', targetPx: 200 },
+        { value: 'cozy', label: 'Cozy', targetPx: 260 },
     ];
 
     density = signal<GridDensity>(this.getInitialDensity());

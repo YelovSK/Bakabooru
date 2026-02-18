@@ -57,7 +57,7 @@ public class TagService
 
     public async Task<Result<TagDto>> CreateTagAsync(CreateTagDto dto)
     {
-        var name = dto.Name.Trim();
+        var name = SanitizeTagName(dto.Name);
         if (string.IsNullOrWhiteSpace(name))
         {
             return Result<TagDto>.Failure(OperationError.InvalidInput, "Tag name cannot be empty.");
@@ -104,7 +104,7 @@ public class TagService
             return Result<TagDto>.Failure(OperationError.NotFound, "Tag not found.");
         }
 
-        var name = dto.Name.Trim();
+        var name = SanitizeTagName(dto.Name);
         if (string.IsNullOrWhiteSpace(name))
         {
             return Result<TagDto>.Failure(OperationError.InvalidInput, "Tag name cannot be empty.");
@@ -186,6 +186,13 @@ public class TagService
         }
 
         _context.PostTags.RemoveRange(sourceLinks);
+
+        // Transfer category from source to target if target has none
+        if (target.TagCategoryId == null && source.TagCategoryId != null)
+        {
+            target.TagCategoryId = source.TagCategoryId;
+        }
+
         _context.Tags.Remove(source);
         await _context.SaveChangesAsync();
         return Result.Success();
@@ -220,6 +227,18 @@ public class TagService
             .Replace("sort:usages", string.Empty, StringComparison.OrdinalIgnoreCase)
             .Replace('*', ' ')
             .Trim();
+    }
+
+    private static string SanitizeTagName(string name)
+    {
+        var sanitized = name.Trim().ToLowerInvariant();
+        sanitized = sanitized.Replace(':', '_');
+        // Collapse multiple consecutive underscores
+        while (sanitized.Contains("__"))
+        {
+            sanitized = sanitized.Replace("__", "_");
+        }
+        return sanitized.Trim('_');
     }
 }
 

@@ -4,6 +4,7 @@ public class PostDto
 {
     public int Id { get; set; }
     public int LibraryId { get; set; }
+    public string? LibraryName { get; set; }
     public string RelativePath { get; set; } = string.Empty;
     public string ContentHash { get; set; } = string.Empty;
     public long SizeBytes { get; set; }
