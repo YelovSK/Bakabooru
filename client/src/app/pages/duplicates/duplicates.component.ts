@@ -1,43 +1,53 @@
-import { ChangeDetectionStrategy, Component, OnInit, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, OnInit, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterLink } from '@angular/router';
-import { DuplicateService, DuplicateGroup, DuplicatePost } from '../../services/api/duplicate.service';
+import { BakabooruService } from '@services/api/bakabooru/bakabooru.service';
+import { DuplicateGroup, DuplicatePost, ExcludedFile } from '@models';
 import { environment } from '../../../environments/environment';
 import { FileNamePipe } from '@shared/pipes/file-name.pipe';
 import { FileSizePipe } from '@shared/pipes/file-size.pipe';
 import { getFileNameFromPath } from '@shared/utils/utils';
 import { ConfirmService } from '@services/confirm.service';
 import { ToastService } from '@services/toast.service';
+import { TabsComponent } from '@shared/components/tabs/tabs.component';
+import { TabComponent } from '@shared/components/tabs/tab.component';
+
 
 @Component({
   selector: 'app-duplicates-page',
   standalone: true,
-  imports: [CommonModule, RouterLink, FileNamePipe, FileSizePipe],
+  imports: [CommonModule, RouterLink, FileNamePipe, FileSizePipe, TabsComponent, TabComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './duplicates.component.html',
 })
 export class DuplicatesPageComponent implements OnInit {
+  private readonly bakabooru = inject(BakabooruService);
+  private readonly confirmService = inject(ConfirmService);
+  private readonly toast = inject(ToastService);
+
+  // Duplicate groups state
   groups = signal<DuplicateGroup[]>([]);
   loading = signal(true);
-
   exactCount = signal(0);
   perceptualCount = signal(0);
-
   mediaBase = environment.mediaBaseUrl;
 
-  constructor(
-    private duplicateService: DuplicateService,
-    private confirmService: ConfirmService,
-    private toast: ToastService,
-  ) { }
+  // Excluded files state
+  excludedFiles = signal<ExcludedFile[]>([]);
+  excludedLoading = signal(true);
+
+
 
   ngOnInit() {
     this.loadGroups();
+    this.loadExcludedFiles();
   }
+
+  // --- Duplicate Groups ---
 
   loadGroups() {
     this.loading.set(true);
-    this.duplicateService.getGroups().subscribe({
+    this.bakabooru.getDuplicateGroups().subscribe({
       next: (groups) => {
         this.groups.set(groups);
         this.recountTypes();
@@ -48,7 +58,7 @@ export class DuplicatesPageComponent implements OnInit {
   }
 
   keepAll(group: DuplicateGroup) {
-    this.duplicateService.keepAll(group.id).subscribe(() => {
+    this.bakabooru.keepAllInGroup(group.id).subscribe(() => {
       this.groups.update(groups => groups.filter(g => g.id !== group.id));
       this.recountTypes();
     });
@@ -63,9 +73,10 @@ export class DuplicatesPageComponent implements OnInit {
     }).subscribe(confirmed => {
       if (!confirmed) return;
 
-      this.duplicateService.keepOne(group.id, post.id).subscribe(() => {
+      this.bakabooru.keepOneInGroup(group.id, post.id).subscribe(() => {
         this.groups.update(groups => groups.filter(g => g.id !== group.id));
         this.recountTypes();
+        this.loadExcludedFiles();
       });
     });
   }
@@ -81,9 +92,10 @@ export class DuplicatesPageComponent implements OnInit {
     }).subscribe(confirmed => {
       if (!confirmed) return;
 
-      this.duplicateService.resolveAllExact().subscribe({
+      this.bakabooru.resolveAllExactDuplicates().subscribe({
         next: (result) => {
           this.loadGroups();
+          this.loadExcludedFiles();
           this.toast.success(`Resolved ${result.resolved} exact duplicate groups.`);
         },
         error: (err) => this.toast.error('Failed: ' + (err?.message || 'Unknown error'))
@@ -97,6 +109,46 @@ export class DuplicatesPageComponent implements OnInit {
 
   trackGroup(_: number, group: DuplicateGroup) { return group.id; }
   trackPost(_: number, post: DuplicatePost) { return post.id; }
+
+  // --- Excluded Files ---
+
+  loadExcludedFiles() {
+    this.excludedLoading.set(true);
+    this.bakabooru.getExcludedFiles().subscribe({
+      next: (files) => {
+        this.excludedFiles.set(files);
+        this.excludedLoading.set(false);
+      },
+      error: () => this.excludedLoading.set(false)
+    });
+  }
+
+  onExcludedRowClick(file: ExcludedFile) {
+    this.confirmService.confirm({
+      title: 'Restore Excluded File',
+      message: `Remove "${getFileNameFromPath(file.relativePath)}" from the exclusion list? It will be re-imported on the next scan.`,
+      confirmText: 'Restore',
+      variant: 'warning',
+    }).subscribe(confirmed => {
+      if (!confirmed) return;
+
+      this.bakabooru.unexcludeFile(file.id).subscribe({
+        next: () => {
+          this.excludedFiles.update(files => files.filter(f => f.id !== file.id));
+          this.toast.success('File removed from exclusion list.');
+        },
+        error: () => this.toast.error('Failed to restore file.')
+      });
+    });
+  }
+
+  getExcludedFileContentUrl(file: ExcludedFile): string {
+    return this.bakabooru.getExcludedFileContentUrl(file.id);
+  }
+
+  onExcludedImageError(event: Event) {
+    (event.target as HTMLImageElement).src = 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><rect fill="%23374151" width="100" height="100"/><text x="50" y="55" text-anchor="middle" fill="%239CA3AF" font-size="12">No image</text></svg>';
+  }
 
   private recountTypes() {
     const groups = this.groups();

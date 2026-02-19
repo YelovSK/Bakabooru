@@ -28,9 +28,14 @@ artifacts/
 # Thumbnails
 data/
 
+# Docker env
+.env
+
 # LLM shit (99% of the time the info is outdated, so I don't feel like committing it)
 agents/
 AGENTS.md
+GEMINI.md
+CLAUDE.md
 
 # Python
 __pycache__/

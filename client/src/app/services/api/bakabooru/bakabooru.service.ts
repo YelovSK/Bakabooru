@@ -26,7 +26,9 @@ import {
     JobHistoryResponse,
     ScheduledJob,
     CronPreview,
-    JobMode
+    JobMode,
+    DuplicateGroup,
+    ExcludedFile,
 } from "./models";
 
 @Injectable({
@@ -293,6 +295,35 @@ export class BakabooruService {
 
     deleteManagedTag(id: number): Observable<void> {
         return this.http.delete<void>(`${this.baseUrl}/tags/${id}`);
+    }
+
+    // --- Duplicates ---
+    getDuplicateGroups(): Observable<DuplicateGroup[]> {
+        return this.http.get<DuplicateGroup[]>(`${this.baseUrl}/duplicates`);
+    }
+
+    keepAllInGroup(groupId: number): Observable<void> {
+        return this.http.post<void>(`${this.baseUrl}/duplicates/${groupId}/keep-all`, {});
+    }
+
+    keepOneInGroup(groupId: number, postId: number): Observable<void> {
+        return this.http.post<void>(`${this.baseUrl}/duplicates/${groupId}/keep/${postId}`, {});
+    }
+
+    resolveAllExactDuplicates(): Observable<{ resolved: number }> {
+        return this.http.post<{ resolved: number }>(`${this.baseUrl}/duplicates/resolve-all-exact`, {});
+    }
+
+    getExcludedFiles(): Observable<ExcludedFile[]> {
+        return this.http.get<ExcludedFile[]>(`${this.baseUrl}/duplicates/excluded`);
+    }
+
+    unexcludeFile(id: number): Observable<void> {
+        return this.http.delete<void>(`${this.baseUrl}/duplicates/excluded/${id}`);
+    }
+
+    getExcludedFileContentUrl(id: number): string {
+        return `${this.baseUrl}/duplicates/excluded/${id}/content`;
     }
 
 }

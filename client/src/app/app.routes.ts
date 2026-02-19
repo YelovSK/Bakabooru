@@ -20,7 +20,8 @@ export const routes: Routes = [
         canActivate: [authGuard],
         children: [
             { path: 'jobs', loadComponent: () => import('./pages/jobs/jobs.component').then(m => m.JobsPageComponent), data: { pageWidth: 'wide' } },
-            { path: 'duplicates', loadComponent: () => import('./pages/duplicates/duplicates.component').then(m => m.DuplicatesPageComponent), data: { pageWidth: 'wide' } },
+            { path: 'duplicates', redirectTo: 'duplicates/groups', pathMatch: 'full' },
+            { path: 'duplicates/:tab', loadComponent: () => import('./pages/duplicates/duplicates.component').then(m => m.DuplicatesPageComponent), data: { pageWidth: 'wide' } },
             { path: AppPaths.posts, component: PostsComponent, data: { pageWidth: 'full' } },
             { path: `${AppPaths.post}/:id`, component: PostDetailComponent, data: { pageWidth: 'full' } },
             { path: AppPaths.bulkTagging, component: BulkTaggingComponent, data: { pageWidth: 'full' } },

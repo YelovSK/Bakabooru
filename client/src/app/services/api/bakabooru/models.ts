@@ -191,3 +191,35 @@ export interface UpdatePostMetadata {
     safety?: Safety;
     version?: string;
 }
+
+export interface DuplicatePost {
+    id: number;
+    libraryId: number;
+    relativePath: string;
+    contentHash: string;
+    width: number;
+    height: number;
+    contentType: string;
+    sizeBytes: number;
+    importDate: string;
+    thumbnailUrl: string;
+    contentUrl: string;
+}
+
+export interface DuplicateGroup {
+    id: number;
+    type: 'exact' | 'perceptual';
+    similarityPercent: number | null;
+    detectedDate: string;
+    posts: DuplicatePost[];
+}
+
+export interface ExcludedFile {
+    id: number;
+    libraryId: number;
+    libraryName: string;
+    relativePath: string;
+    contentHash: string | null;
+    excludedDate: string;
+    reason: string;
+}

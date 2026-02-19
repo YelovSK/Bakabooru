@@ -53,4 +53,40 @@ public class DuplicatesController : ControllerBase
     {
         return Ok(await _duplicateService.ResolveAllExactAsync());
     }
+
+    /// <summary>
+    /// Returns all excluded files (e.g. from duplicate resolution).
+    /// </summary>
+    [HttpGet("excluded")]
+    public async Task<ActionResult<IEnumerable<ExcludedFileDto>>> GetExcludedFiles(CancellationToken cancellationToken)
+    {
+        return Ok(await _duplicateService.GetExcludedFilesAsync(cancellationToken));
+    }
+
+    /// <summary>
+    /// Remove a file from the exclusion list. It will be re-imported on the next scan.
+    /// </summary>
+    [HttpDelete("excluded/{id}")]
+    public async Task<IActionResult> UnexcludeFile(int id)
+    {
+        return await _duplicateService.UnexcludeFileAsync(id).ToHttpResult();
+    }
+
+    /// <summary>
+    /// Serves the original file content for an excluded file.
+    /// </summary>
+    [HttpGet("excluded/{id}/content")]
+    public async Task<IActionResult> GetExcludedFileContent(int id, CancellationToken cancellationToken)
+    {
+        return await _duplicateService.GetExcludedFileContentPathAsync(id, cancellationToken)
+            .ToHttpResult(fullPath =>
+            {
+                var provider = new Microsoft.AspNetCore.StaticFiles.FileExtensionContentTypeProvider();
+                if (!provider.TryGetContentType(fullPath!, out var contentType))
+                {
+                    contentType = "application/octet-stream";
+                }
+                return PhysicalFile(fullPath!, contentType, enableRangeProcessing: true);
+            });
+    }
 }

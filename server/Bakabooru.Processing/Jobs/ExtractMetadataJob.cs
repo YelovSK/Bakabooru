@@ -113,7 +113,7 @@ public class ExtractMetadataJob : IJob
                             return;
                         }
 
-                        var contentType = metadata.ContentType ?? SupportedMedia.GetMimeType(Path.GetExtension(post.RelativePath));
+                        var contentType = SupportedMedia.GetMimeType(Path.GetExtension(post.RelativePath));
 
                         results.Add((post.Id, metadata.Width, metadata.Height, contentType));
                         Interlocked.Increment(ref processed);

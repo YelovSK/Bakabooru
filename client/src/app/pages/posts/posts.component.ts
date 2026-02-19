@@ -4,6 +4,7 @@ import {
     Component,
     DestroyRef,
     ElementRef,
+    HostListener,
     ViewChild,
     computed,
     effect,
@@ -35,6 +36,7 @@ import { AutocompleteComponent } from '@shared/components/autocomplete/autocompl
 import { escapeTagName } from '@shared/utils/utils';
 import { AppLinks } from '@app/app.paths';
 import { StorageService, STORAGE_KEYS } from '@services/storage.service';
+import { PostPreviewOverlayComponent } from '@shared/components/post-preview-overlay/post-preview-overlay.component';
 import {
     getFirstVisibleOffsetForRowIndex,
     getPageForRowIndex,
@@ -61,7 +63,7 @@ import {
 
 @Component({
     selector: 'app-posts',
-    imports: [CommonModule, RouterLink, AutocompleteComponent, ScrollingModule, PostsCyclicGridStrategyDirective],
+    imports: [CommonModule, RouterLink, AutocompleteComponent, ScrollingModule, PostsCyclicGridStrategyDirective, PostPreviewOverlayComponent],
     providers: [PostsPageCacheStore, PostsFastScrollerController],
     templateUrl: './posts.component.html',
     styleUrl: './posts.component.css',
@@ -84,6 +86,7 @@ export class PostsComponent implements AfterViewInit {
     private static readonly URL_SYNC_DEBOUNCE_MS = 160;
 
     private static readonly SCROLL_IDLE_RESET_MS = 120;
+    private static readonly HOVER_PREVIEW_DELAY_MS = 700;
 
     @ViewChild('viewportShell') private viewportShellRef?: ElementRef<HTMLElement>;
     @ViewChild('postsViewport') private viewportRef?: CdkVirtualScrollViewport;
@@ -103,6 +106,7 @@ export class PostsComponent implements AfterViewInit {
 
     private urlSyncTimer: ReturnType<typeof setTimeout> | null = null;
     private scrollIdleTimer: ReturnType<typeof setTimeout> | null = null;
+    private hoverPreviewTimer: ReturnType<typeof setTimeout> | null = null;
 
     private readonly bakabooru = inject(BakabooruService);
     private readonly router = inject(Router);
@@ -144,6 +148,7 @@ export class PostsComponent implements AfterViewInit {
     currentOffset = signal(0);
     isScrolling = signal(false);
     toolbarHidden = signal(false);
+    previewPost = signal<import('@models').BakabooruPostDto | null>(null);
     isMobileViewport = signal(false);
 
     readonly totalPages = computed(() => {
@@ -259,6 +264,7 @@ export class PostsComponent implements AfterViewInit {
             this.fastScroller.dispose();
             this.clearUrlSyncTimer();
             this.clearScrollIdleTimer();
+            this.clearHoverPreviewTimer();
             this.virtualRowDataSource.disconnect();
         });
 
@@ -451,6 +457,33 @@ export class PostsComponent implements AfterViewInit {
         return 'image';
     }
 
+    onPostMouseEnter(post: import('@models').BakabooruPostDto): void {
+        this.clearHoverPreviewTimer();
+        this.hoverPreviewTimer = setTimeout(() => {
+            this.previewPost.set(post);
+        }, PostsComponent.HOVER_PREVIEW_DELAY_MS);
+    }
+
+    onPostMouseLeave(event: MouseEvent): void {
+        this.clearHoverPreviewTimer();
+        if (this.previewPost() !== null) {
+            // Keep the preview if the mouse moved into the card
+            // (either because the card appeared under the cursor, or the user moved into it).
+            // relatedTarget.closest() handles both cases reliably.
+            const related = event.relatedTarget as Element | null;
+            if (related?.closest('[data-preview-card]')) {
+                return;
+            }
+            this.previewPost.set(null);
+        }
+    }
+
+    @HostListener('document:keydown.escape')
+    dismissPreview(): void {
+        this.clearHoverPreviewTimer();
+        this.previewPost.set(null);
+    }
+
     onFastScrollerPointerDown(event: PointerEvent): void {
         this.fastScroller.onPointerDown(event);
     }
@@ -594,6 +627,7 @@ export class PostsComponent implements AfterViewInit {
         this.markScrollingActive();
         this.fastScroller.onScrollActivity();
         this.updateScrollDerivedState();
+        this.dismissPreview();
     }
 
     private updateScrollDerivedState(): void {
@@ -1146,4 +1180,11 @@ export class PostsComponent implements AfterViewInit {
 
     readonly pageSize = PostsComponent.PAGE_SIZE;
     readonly gridGapPx = PostsComponent.GRID_GAP_PX;
+
+    private clearHoverPreviewTimer(): void {
+        if (this.hoverPreviewTimer !== null) {
+            clearTimeout(this.hoverPreviewTimer);
+            this.hoverPreviewTimer = null;
+        }
+    }
 }

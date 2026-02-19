@@ -89,7 +89,8 @@
                     @if (cell.kind === 'post') {
                     @if (cell.post; as post) {
                     <a class="post-tile group relative block aspect-square overflow-hidden rounded-xl border border-slate-400/12 bg-bg-secondary [contain:layout_paint_style] transition-[transform,box-shadow,border-color] duration-200 hover:z-[2] hover:-translate-y-[1px] hover:scale-[1.012] hover:border-sky-400/50 hover:shadow-[0_10px_22px_rgba(15,23,42,0.36)]"
-                        [routerLink]="appLinks.post(post.id)" [queryParams]="{ query: activeQuery() || null }">
+                        [routerLink]="appLinks.post(post.id)" [queryParams]="{ query: activeQuery() || null }"
+                        (mouseenter)="onPostMouseEnter(post)" (mouseleave)="onPostMouseLeave($event)">
                         <img [src]="environment.mediaBaseUrl + post.thumbnailUrl" [alt]="'Post ' + post.id"
                             class="block h-full w-full object-cover" decoding="async"
                             [attr.loading]="row.page === currentPage() && row.rowInPage === 0 ? 'eager' : 'lazy'" />
@@ -173,4 +174,9 @@
         </div>
         }
     </div>
+
+    @if (previewPost(); as preview) {
+    <app-post-preview-overlay [post]="preview" [mediaBaseUrl]="environment.mediaBaseUrl"
+        (closed)="previewPost.set(null)" />
+    }
 </section>

@@ -3,16 +3,16 @@ services:
     image: ghcr.io/yelovsk/bakabooru-server:latest
     restart: unless-stopped
     environment:
-      ASPNETCORE_URLS: http://+:6666
+      ASPNETCORE_URLS: "http://+:${SERVER_PORT:-6666}"
       Bakabooru__Storage__DatabasePath: /app/data/bakabooru.db
       Bakabooru__Storage__ThumbnailPath: /app/data/thumbnails
       Bakabooru__Storage__TempPath: /app/data/temp
-      Bakabooru__Auth__Enabled: "true"
-      Bakabooru__Auth__Username: admin
-      Bakabooru__Auth__Password: change-me
+      Bakabooru__Auth__Enabled: "${AUTH_ENABLED:-true}"
+      Bakabooru__Auth__Username: "${AUTH_USERNAME:-admin}"
+      Bakabooru__Auth__Password: "${AUTH_PASSWORD:-change-me}"
     volumes:
       - ./data/server:/app/data
-      - ./media:/media
+      - ${MEDIA_PATH:-./media}:/media
 
   client:
     image: ghcr.io/yelovsk/bakabooru-client:latest
@@ -21,6 +21,6 @@ services:
       - server
     environment:
       BACKEND_HOST: server
-      BACKEND_PORT: 6666
+      BACKEND_PORT: "${SERVER_PORT:-6666}"
     ports:
-      - "8080:80"
+      - "${CLIENT_PORT:-8080}:80"

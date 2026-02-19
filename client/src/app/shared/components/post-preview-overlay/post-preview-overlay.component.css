@@ -1,0 +1,33 @@
+:host {
+    display: contents;
+}
+
+.hover-preview-overlay {
+    animation: hover-preview-fade-in 180ms ease-out both;
+}
+
+.hover-preview-card {
+    animation: hover-preview-scale-in 200ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+@keyframes hover-preview-fade-in {
+    from {
+        opacity: 0;
+    }
+
+    to {
+        opacity: 1;
+    }
+}
+
+@keyframes hover-preview-scale-in {
+    from {
+        opacity: 0;
+        transform: scale(0.92);
+    }
+
+    to {
+        opacity: 1;
+        transform: scale(1);
+    }
+}

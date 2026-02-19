@@ -194,5 +194,69 @@ public class DuplicateService
             await _context.SaveChangesAsync();
         }
     }
+
+    public async Task<List<ExcludedFileDto>> GetExcludedFilesAsync(CancellationToken cancellationToken = default)
+    {
+        return await _context.ExcludedFiles
+            .AsNoTracking()
+            .Include(e => e.Library)
+            .OrderByDescending(e => e.ExcludedDate)
+            .Select(e => new ExcludedFileDto
+            {
+                Id = e.Id,
+                LibraryId = e.LibraryId,
+                LibraryName = e.Library.Name,
+                RelativePath = e.RelativePath,
+                ContentHash = e.ContentHash,
+                ExcludedDate = e.ExcludedDate,
+                Reason = e.Reason,
+            })
+            .ToListAsync(cancellationToken);
+    }
+
+    public async Task<Result> UnexcludeFileAsync(int excludedFileId)
+    {
+        var entry = await _context.ExcludedFiles.FindAsync(new object[] { excludedFileId });
+        if (entry == null)
+        {
+            return Result.Failure(OperationError.NotFound, "Excluded file not found.");
+        }
+
+        _context.ExcludedFiles.Remove(entry);
+        await _context.SaveChangesAsync();
+        return Result.Success();
+    }
+    public async Task<Result<string>> GetExcludedFileContentPathAsync(int excludedFileId, CancellationToken cancellationToken = default)
+    {
+        var entry = await _context.ExcludedFiles
+            .AsNoTracking()
+            .Where(e => e.Id == excludedFileId)
+            .Select(e => new
+            {
+                e.RelativePath,
+                LibraryPath = e.Library.Path,
+            })
+            .FirstOrDefaultAsync(cancellationToken);
+
+        if (entry == null)
+        {
+            return Result<string>.Failure(OperationError.NotFound, "Excluded file not found.");
+        }
+
+        var fullPath = Path.GetFullPath(Path.Combine(entry.LibraryPath, entry.RelativePath));
+        var libraryRoot = Path.GetFullPath(entry.LibraryPath + Path.DirectorySeparatorChar);
+
+        if (!fullPath.StartsWith(libraryRoot, StringComparison.OrdinalIgnoreCase))
+        {
+            return Result<string>.Failure(OperationError.InvalidInput, "Invalid file path.");
+        }
+
+        if (!File.Exists(fullPath))
+        {
+            return Result<string>.Failure(OperationError.NotFound, "File not found on disk.");
+        }
+
+        return Result<string>.Success(fullPath);
+    }
 }
 

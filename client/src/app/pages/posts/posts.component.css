@@ -49,11 +49,9 @@
 }
 
 .fast-scroller-rail::before {
-    background: linear-gradient(
-        to left,
-        rgba(0, 0, 0, 0.86) 0%,
-        rgba(0, 0, 0, 0) 100%
-    );
+    background: linear-gradient(to left,
+            rgba(0, 0, 0, 0.86) 0%,
+            rgba(0, 0, 0, 0) 100%);
     bottom: 0;
     content: '';
     left: -128px;
@@ -78,7 +76,7 @@
         pointer-events: auto;
     }
 
-    .fast-scroller-hover-zone:hover + .fast-scroller-rail,
+    .fast-scroller-hover-zone:hover+.fast-scroller-rail,
     .fast-scroller-rail:hover {
         opacity: 1;
         pointer-events: auto;
@@ -98,11 +96,9 @@
     }
 
     .fast-scroller-rail::before {
-        background: linear-gradient(
-            to left,
-            rgba(0, 0, 0, 0.6) 0%,
-            rgba(0, 0, 0, 0) 100%
-        );
+        background: linear-gradient(to left,
+                rgba(0, 0, 0, 0.6) 0%,
+                rgba(0, 0, 0, 0) 100%);
         left: -80px;
         width: 104px;
     }
