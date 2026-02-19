@@ -37,7 +37,12 @@ public class ThumbnailStep : IMediaProcessingStep
     {
         if (string.IsNullOrEmpty(context.ContentHash)) return;
 
-        var destination = MediaPaths.GetThumbnailFilePath(_thumbnailPath, context.ContentHash);
+        var destination = MediaPaths.GetThumbnailFilePath(_thumbnailPath, context.Library.Id, context.ContentHash);
+        var destinationDirectory = Path.GetDirectoryName(destination);
+        if (!string.IsNullOrWhiteSpace(destinationDirectory))
+        {
+            Directory.CreateDirectory(destinationDirectory);
+        }
         if (!File.Exists(destination))
         {
             _logger.LogInformation("Generating thumbnail: {Path}", context.RelativePath);

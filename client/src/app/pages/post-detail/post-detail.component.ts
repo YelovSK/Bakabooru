@@ -8,10 +8,9 @@ import { toObservable, toSignal, takeUntilDestroyed } from '@angular/core/rxjs-i
 import { BakabooruService } from '@services/api/bakabooru/bakabooru.service';
 import { SettingsService } from '@services/settings.service';
 import { ToastService } from '@services/toast.service';
-import { environment } from '@env/environment';
 import { TagPipe } from '@shared/pipes/escape-tag.pipe';
 import { escapeTagName } from '@shared/utils/utils';
-import { BakabooruPostDto, BakabooruPostsAroundDto, BakabooruTagDto, ManagedTagCategory } from '@models';
+import { BakabooruPostDto, BakabooruPostsAroundDto, BakabooruTagDto, ManagedTagCategory, PostTagSource } from '@models';
 import { ButtonComponent } from '@shared/components/button/button.component';
 import { AutocompleteComponent } from '@shared/components/autocomplete/autocomplete.component';
 import { AutoTaggingResultsComponent } from '@shared/components/auto-tagging-results/auto-tagging-results.component';
@@ -44,6 +43,7 @@ export class PostDetailComponent {
   readonly editService = inject(PostEditService);
 
   readonly appLinks = AppLinks;
+  readonly postTagSource = PostTagSource;
 
   // Video settings from user preferences
   readonly autoPlayVideos = this.settingsService.autoPlayVideos;
@@ -51,8 +51,6 @@ export class PostDetailComponent {
 
   id = input.required<string>();
   query = input<string | null>('');
-
-  environment = environment;
 
   // Sidebar collapsed state
   sidebarCollapsed = signal(false);
@@ -219,6 +217,10 @@ export class PostDetailComponent {
     return this.tagCategories().find(cat => cat.name === tag.categoryName);
   }
 
+  hasTagSource(tag: BakabooruTagDto, source: PostTagSource): boolean {
+    return (tag.sources ?? []).includes(source);
+  }
+
   // Sidebar toggle
   toggleSidebar() {
     this.sidebarCollapsed.update(v => !v);
@@ -335,7 +337,7 @@ export class PostDetailComponent {
     if (!post) return;
 
     // Use HttpClient to fetch through the proxy (avoids CORS)
-    const url = this.environment.mediaBaseUrl + post.contentUrl;
+    const url = this.bakabooru.getPostContentUrl(post.contentPostId);
     this.http.get(url, { responseType: 'blob' })
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe(blob => {
@@ -348,7 +350,7 @@ export class PostDetailComponent {
     const post = this.post();
     if (!post) return;
 
-    const url = this.environment.mediaBaseUrl + post.contentUrl;
+    const url = this.bakabooru.getPostContentUrl(post.contentPostId);
     this.http.get(url, { responseType: 'blob' })
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe(blob => {
@@ -429,6 +431,14 @@ export class PostDetailComponent {
     if (contentType.startsWith('video/')) return 'video';
     if (contentType === 'image/gif') return 'animation';
     return 'image';
+  }
+
+  getThumbnailUrl(post: BakabooruPostDto): string {
+    return this.bakabooru.getThumbnailUrl(post.thumbnailLibraryId, post.thumbnailContentHash);
+  }
+
+  getPostContentUrl(post: BakabooruPostDto): string {
+    return this.bakabooru.getPostContentUrl(post.contentPostId);
   }
 
   private getAspectRatio(width: number, height: number): string | null {

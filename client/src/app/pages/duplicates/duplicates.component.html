@@ -82,7 +82,7 @@
                             <div class="relative aspect-square overflow-hidden cursor-pointer" role="button"
                                 tabindex="0" (click)="keepOne(group, post)" (keydown.enter)="keepOne(group, post)"
                                 (keydown.space)="keepOne(group, post); $event.preventDefault()">
-                                <img [src]="mediaBase + post.thumbnailUrl" [alt]="post.relativePath"
+                                <img [src]="getThumbnailUrl(post)" [alt]="post.relativePath"
                                     class="w-full h-full object-cover" loading="lazy" (error)="onImageError($event)">
                                 <!-- Keep this overlay on hover -->
                                 <div
@@ -106,6 +106,114 @@
                         }
                     </div>
                 </div>
+                }
+            </ng-template>
+        </app-tab>
+
+        <!-- Same Folder Tab -->
+        <app-tab id="same-folder" label="Same Folder">
+            <ng-template>
+                <p class="text-sm text-text-muted mb-4">
+                    Duplicates scoped to the same library folder. Click any post to delete that specific file from
+                    disk. Auto resolve keeps the highest-quality post in each group.
+                </p>
+
+                <div class="mb-6 flex flex-wrap gap-3">
+                    <div class="flex-1 min-w-[12rem] rounded-lg border border-gray-700 bg-gray-900 px-6 py-4">
+                        <div class="text-3xl font-bold text-white">{{ sameFolderGroups().length }}</div>
+                        <div class="text-sm text-gray-400">Same-Folder Groups</div>
+                    </div>
+                    <div class="flex-1 min-w-[12rem] rounded-lg border border-gray-700 bg-gray-900 px-6 py-4">
+                        <div class="text-3xl font-bold text-blue-400">{{ getSameFolderPostCount() }}</div>
+                        <div class="text-sm text-gray-400">Posts In Groups</div>
+                    </div>
+                </div>
+
+                @if (!sameFolderLoading() && sameFolderGroups().length > 0) {
+                <div class="mb-6">
+                    <button (click)="resolveAllSameFolder()"
+                        class="bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-6 rounded transition-colors">
+                        Auto Resolve All Same-Folder Groups ({{ sameFolderGroups().length }})
+                    </button>
+                    <span class="text-xs text-gray-500 ml-3">Keeps highest-quality post and deletes others</span>
+                </div>
+                }
+
+                @if (sameFolderLoading()) {
+                <div class="text-center py-16 text-gray-400">Loading same-folder groups...</div>
+                } @else if (sameFolderGroups().length === 0) {
+                <div class="text-center py-16">
+                    <div class="text-6xl mb-4">📁</div>
+                    <h2 class="text-xl font-semibold text-white mb-2">No same-folder duplicates</h2>
+                    <p class="text-gray-400">Run "Find Duplicates" to refresh duplicate groups.</p>
+                </div>
+                } @else {
+                @for (group of sameFolderGroups(); track trackSameFolderGroup($index, group)) {
+                <div class="bg-gray-900 border border-gray-700 rounded-lg p-4 md:p-5 mb-6 shadow-lg">
+                    <div class="mb-4 flex flex-wrap items-center justify-between gap-3">
+                        <div class="flex flex-wrap items-center gap-3">
+                            <span [class]="group.duplicateType === 'exact'
+                              ? 'bg-blue-600 text-white px-2 py-1 rounded text-xs font-bold'
+                              : 'bg-purple-600 text-white px-2 py-1 rounded text-xs font-bold'">
+                                {{ group.duplicateType === 'exact' ? 'EXACT' : 'PERCEPTUAL' }}
+                            </span>
+                            <span class="text-sm text-gray-300">{{ group.libraryName }} / {{ getFolderDisplayPath(group) }}</span>
+                            @if (group.similarityPercent) {
+                            <span class="text-sm text-gray-400">~{{ group.similarityPercent }}% similar</span>
+                            }
+                            <span class="text-sm text-gray-500">{{ group.posts.length }} posts</span>
+                        </div>
+                        <button (click)="resolveSameFolderGroup(group)"
+                            class="bg-red-700 hover:bg-red-800 text-white px-4 py-2 rounded text-sm transition-colors">
+                            Auto Resolve Group
+                        </button>
+                    </div>
+
+                    <div class="mb-3 text-xs text-gray-400">
+                        Auto keep recommendation:
+                        <span class="text-green-400">
+                            {{ getRecommendedKeepFileName(group) }}
+                        </span>
+                    </div>
+
+                    <div class="flex flex-wrap gap-3">
+                        @for (post of group.posts; track trackSameFolderPost($index, post)) {
+                        <div
+                            class="relative w-36 sm:w-40 md:w-44 group/card bg-gray-800 rounded-lg overflow-hidden border border-gray-700 hover:border-red-500 transition-colors">
+                            <div class="relative aspect-square overflow-hidden cursor-pointer" role="button"
+                                tabindex="0" (click)="deleteSameFolderPost(group, post)"
+                                (keydown.enter)="deleteSameFolderPost(group, post)"
+                                (keydown.space)="deleteSameFolderPost(group, post); $event.preventDefault()">
+                                <img [src]="getThumbnailUrl(post)" [alt]="post.relativePath"
+                                    class="w-full h-full object-cover" loading="lazy" (error)="onImageError($event)">
+                                <div
+                                    class="absolute inset-0 bg-black/60 opacity-0 group-hover/card:opacity-100 transition-opacity flex items-center justify-center">
+                                    <span class="bg-red-600 text-white font-bold px-4 py-2 rounded text-sm">Delete
+                                        This</span>
+                                </div>
+                            </div>
+
+                            <a [routerLink]="['/post', post.id]"
+                                class="block p-2 hover:bg-gray-700/50 transition-colors">
+                                <div class="text-xs text-gray-400 truncate mb-1" [title]="post.relativePath">{{
+                                    post.relativePath | fileName }}</div>
+                                <div class="flex justify-between text-xs text-gray-500">
+                                    <span>{{ post.width }}×{{ post.height }}</span>
+                                    <span>{{ post.sizeBytes | fileSize }}</span>
+                                </div>
+                            </a>
+
+                            @if (isRecommendedKeep(group, post)) {
+                            <div
+                                class="pointer-events-none absolute left-2 top-2 rounded bg-green-600 px-2 py-0.5 text-[10px] font-bold text-white">
+                                KEEP (AUTO)
+                            </div>
+                            }
+                        </div>
+                        }
+                    </div>
+                </div>
+                }
                 }
             </ng-template>
         </app-tab>

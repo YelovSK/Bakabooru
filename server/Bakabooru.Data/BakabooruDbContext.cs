@@ -38,7 +38,7 @@ public class BakabooruDbContext : DbContext
 
         // Configure PostTag composite key
         modelBuilder.Entity<PostTag>()
-            .HasKey(pt => new { pt.PostId, pt.TagId });
+            .HasKey(pt => new { pt.PostId, pt.TagId, pt.Source });
 
         modelBuilder.Entity<PostTag>()
             .HasOne(pt => pt.Post)
@@ -96,7 +96,10 @@ public class BakabooruDbContext : DbContext
             .HasIndex(p => p.IsFavorite);
 
         modelBuilder.Entity<PostTag>()
-            .HasIndex(p => new { p.TagId, p.PostId });
+            .HasIndex(p => new { p.TagId, p.PostId, p.Source });
+
+        modelBuilder.Entity<PostTag>()
+            .HasIndex(p => new { p.PostId, p.Source });
 
         modelBuilder.Entity<PostSource>()
             .HasIndex(ps => new { ps.PostId, ps.Order })

@@ -11,6 +11,7 @@ namespace Bakabooru.Processing.Jobs;
 public class ApplyFolderTagsJob : IJob
 {
     private sealed record FolderTagCandidate(int Id, string RelativePath);
+    private sealed record ExistingFolderTagLink(int PostId, int TagId, string TagName);
 
     private readonly IServiceScopeFactory _scopeFactory;
     private readonly ILogger<ApplyFolderTagsJob> _logger;
@@ -53,6 +54,7 @@ public class ApplyFolderTagsJob : IJob
         var processed = 0;
         var updatedPosts = 0;
         var addedTags = 0;
+        var removedTags = 0;
         var skipped = 0;
         var failed = 0;
 
@@ -78,44 +80,73 @@ public class ApplyFolderTagsJob : IJob
             {
                 var postIds = batch.Select(p => p.Id).ToList();
 
-                var existingTagRows = await db.PostTags
+                var existingFolderLinks = await db.PostTags
                     .AsNoTracking()
-                    .Where(pt => postIds.Contains(pt.PostId))
-                    .Select(pt => new { pt.PostId, TagName = pt.Tag.Name })
+                    .Where(pt => postIds.Contains(pt.PostId) && pt.Source == PostTagSource.Folder)
+                    .Select(pt => new ExistingFolderTagLink(pt.PostId, pt.TagId, pt.Tag.Name))
                     .ToListAsync(context.CancellationToken);
 
-                var existingTagsByPost = existingTagRows
+                var existingFolderByPost = existingFolderLinks
                     .GroupBy(x => x.PostId)
                     .ToDictionary(
                         g => g.Key,
-                        g => g.Select(x => x.TagName).ToHashSet(StringComparer.OrdinalIgnoreCase));
+                        g => g.ToList());
 
+                var postsToRemoveLinks = new List<PostTag>();
                 var plans = new List<(int PostId, List<string> TagsToAdd)>(batch.Count);
                 var neededTagNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
                 foreach (var post in batch)
                 {
-                    var existing = existingTagsByPost.TryGetValue(post.Id, out var names)
-                        ? names
+                    var desiredFolderTags = folderTagging.BuildPlan(post.RelativePath).FolderTags
+                        .ToHashSet(StringComparer.OrdinalIgnoreCase);
+                    var existingFolderLinksForPost = existingFolderByPost.TryGetValue(post.Id, out var links)
+                        ? links
                         : [];
+                    var existingFolderNames = existingFolderLinksForPost
+                        .Select(link => link.TagName)
+                        .ToHashSet(StringComparer.OrdinalIgnoreCase);
+                    var tagsToAdd = desiredFolderTags
+                        .Where(name => !existingFolderNames.Contains(name))
+                        .ToList();
+                    var tagIdsToRemove = existingFolderLinksForPost
+                        .Where(link => !desiredFolderTags.Contains(link.TagName))
+                        .Select(link => link.TagId)
+                        .ToHashSet();
 
-                    var plan = folderTagging.BuildPlan(post.RelativePath, existing);
-                    if (plan.FolderTags.Count == 0 || plan.TagsToAdd.Count == 0)
+                    if (tagIdsToRemove.Count > 0)
                     {
-                        skipped++;
-                        continue;
+                        postsToRemoveLinks.AddRange(tagIdsToRemove.Select(tagId => new PostTag
+                        {
+                            PostId = post.Id,
+                            TagId = tagId,
+                            Source = PostTagSource.Folder
+                        }));
                     }
 
-                    var tagsToAdd = plan.TagsToAdd.ToList();
-                    plans.Add((post.Id, tagsToAdd));
+                    if (tagsToAdd.Count > 0)
+                    {
+                        plans.Add((post.Id, tagsToAdd));
+                    }
 
                     foreach (var tagName in tagsToAdd)
                     {
                         neededTagNames.Add(tagName);
                     }
+
+                    if (tagsToAdd.Count == 0 && tagIdsToRemove.Count == 0)
+                    {
+                        skipped++;
+                    }
                 }
 
-                if (plans.Count > 0)
+                if (postsToRemoveLinks.Count > 0)
+                {
+                    db.PostTags.RemoveRange(postsToRemoveLinks);
+                    removedTags += postsToRemoveLinks.Count;
+                }
+
+                if (plans.Count > 0 || postsToRemoveLinks.Count > 0)
                 {
                     var tagsByName = await db.Tags
                         .Where(t => neededTagNames.Contains(t.Name))
@@ -141,16 +172,26 @@ public class ApplyFolderTagsJob : IJob
                             db.PostTags.Add(new PostTag
                             {
                                 PostId = postId,
-                                Tag = tagsByName[tagName]
+                                Tag = tagsByName[tagName],
+                                Source = PostTagSource.Folder
                             });
                             postAdded++;
                         }
 
-                        if (postAdded > 0)
+                        if (postAdded > 0 || postsToRemoveLinks.Any(link => link.PostId == postId))
                         {
                             updatedPosts++;
                             addedTags += postAdded;
                         }
+                    }
+
+                    if (postsToRemoveLinks.Count > 0)
+                    {
+                        updatedPosts += postsToRemoveLinks
+                            .Select(link => link.PostId)
+                            .Where(postId => plans.All(plan => plan.PostId != postId))
+                            .Distinct()
+                            .Count();
                     }
 
                     await db.SaveChangesAsync(context.CancellationToken);
@@ -170,7 +211,7 @@ public class ApplyFolderTagsJob : IJob
                 Succeeded = updatedPosts,
                 Failed = failed,
                 Skipped = skipped,
-                Summary = $"Updated {updatedPosts} posts, added {addedTags} tags"
+                Summary = $"Updated {updatedPosts} posts, added {addedTags} tags, removed {removedTags} stale folder tags"
             });
         }
 
@@ -182,7 +223,7 @@ public class ApplyFolderTagsJob : IJob
             Succeeded = updatedPosts,
             Failed = failed,
             Skipped = skipped,
-            Summary = $"Updated {updatedPosts} posts and added {addedTags} folder tags."
+            Summary = $"Updated {updatedPosts} posts, added {addedTags} folder tags, removed {removedTags} stale folder tags."
         });
     }
 }

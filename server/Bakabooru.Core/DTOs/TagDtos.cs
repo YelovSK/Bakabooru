@@ -1,4 +1,5 @@
 using System.ComponentModel.DataAnnotations;
+using Bakabooru.Core.Entities;
 
 namespace Bakabooru.Core.DTOs;
 
@@ -36,6 +37,7 @@ public class TagDto
     public string? CategoryName { get; set; }
     public string? CategoryColor { get; set; }
     public int Usages { get; set; }
+    public List<PostTagSource>? Sources { get; set; }
 }
 
 public class CreateTagDto

@@ -71,8 +71,10 @@ public class DuplicatePostDto
     public string ContentType { get; set; } = string.Empty;
     public long SizeBytes { get; set; }
     public DateTime ImportDate { get; set; }
-    public string ThumbnailUrl { get; set; } = string.Empty;
-    public string ContentUrl { get; set; } = string.Empty;
+    public DateTime FileModifiedDate { get; set; }
+    public int ThumbnailLibraryId { get; set; }
+    public string ThumbnailContentHash { get; set; } = string.Empty;
+    public int ContentPostId { get; set; }
 }
 
 public class DuplicateGroupDto
@@ -87,6 +89,56 @@ public class DuplicateGroupDto
 public class ResolveAllExactResponseDto
 {
     public int Resolved { get; set; }
+}
+
+public class SameFolderDuplicatePostDto
+{
+    public int Id { get; set; }
+    public int LibraryId { get; set; }
+    public string RelativePath { get; set; } = string.Empty;
+    public string ContentHash { get; set; } = string.Empty;
+    public int Width { get; set; }
+    public int Height { get; set; }
+    public long SizeBytes { get; set; }
+    public DateTime ImportDate { get; set; }
+    public DateTime FileModifiedDate { get; set; }
+    public int ThumbnailLibraryId { get; set; }
+    public string ThumbnailContentHash { get; set; } = string.Empty;
+    public int ContentPostId { get; set; }
+}
+
+public class SameFolderDuplicateGroupDto
+{
+    public int ParentDuplicateGroupId { get; set; }
+    public string DuplicateType { get; set; } = string.Empty;
+    public int? SimilarityPercent { get; set; }
+    public int LibraryId { get; set; }
+    public string LibraryName { get; set; } = string.Empty;
+    public string FolderPath { get; set; } = string.Empty;
+    public int RecommendedKeepPostId { get; set; }
+    public List<SameFolderDuplicatePostDto> Posts { get; set; } = [];
+}
+
+public class DeleteSameFolderDuplicateRequestDto
+{
+    public int ParentDuplicateGroupId { get; set; }
+    public int LibraryId { get; set; }
+    public string FolderPath { get; set; } = string.Empty;
+    public int PostId { get; set; }
+}
+
+public class ResolveSameFolderGroupRequestDto
+{
+    public int ParentDuplicateGroupId { get; set; }
+    public int LibraryId { get; set; }
+    public string FolderPath { get; set; } = string.Empty;
+}
+
+public class ResolveSameFolderResponseDto
+{
+    public int ResolvedGroups { get; set; }
+    public int DeletedPosts { get; set; }
+    public int SkippedGroups { get; set; }
 }
 
 public class SystemInfoDto

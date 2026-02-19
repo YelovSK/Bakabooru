@@ -30,7 +30,6 @@ import {
 
 import { BakabooruService } from '@services/api/bakabooru/bakabooru.service';
 import { HotkeysService } from '@services/hotkeys.service';
-import { environment } from '@env/environment';
 import { BakabooruTagDto } from '@models';
 import { AutocompleteComponent } from '@shared/components/autocomplete/autocomplete.component';
 import { escapeTagName } from '@shared/utils/utils';
@@ -79,6 +78,7 @@ export class PostsComponent implements AfterViewInit {
     private static readonly TOOLBAR_HIDE_SCROLL_DELTA_PX = 40;
     private static readonly TOOLBAR_SHOW_SCROLL_DELTA_PX = 150;
     private static readonly TOOLBAR_TOGGLE_GUARD_MS = 120;
+    private static readonly MOBILE_TOOLBAR_TOP_MARGIN_PX = 12;
 
     private static readonly MIN_VIEWPORT_HEIGHT_PX = 260;
     private static readonly VIEWPORT_BOTTOM_GUTTER_PX = 0;
@@ -89,10 +89,12 @@ export class PostsComponent implements AfterViewInit {
     private static readonly HOVER_PREVIEW_DELAY_MS = 700;
 
     @ViewChild('viewportShell') private viewportShellRef?: ElementRef<HTMLElement>;
+    @ViewChild('toolbar') private toolbarRef?: ElementRef<HTMLElement>;
     @ViewChild('postsViewport') private viewportRef?: CdkVirtualScrollViewport;
     @ViewChild('fastScrollerRail') private fastScrollerRailRef?: ElementRef<HTMLElement>;
 
     private gridResizeObserver?: ResizeObserver;
+    private toolbarResizeObserver?: ResizeObserver;
 
     private readonly rowCellsCache = new Map<string, GridCell[]>();
 
@@ -117,7 +119,6 @@ export class PostsComponent implements AfterViewInit {
     private readonly fastScroller = inject(PostsFastScrollerController);
 
     readonly appLinks = AppLinks;
-    readonly environment = environment;
 
     query = input<string | null>('');
     page = input<string | null>(null);
@@ -125,7 +126,7 @@ export class PostsComponent implements AfterViewInit {
 
     currentSearchValue = signal('');
 
-    readonly densityOptions: ReadonlyArray<{ value: GridDensity; label: string; targetPx: number }> = [
+    readonly densityOptions: readonly { value: GridDensity; label: string; targetPx: number }[] = [
         { value: 'compact', label: 'Compact', targetPx: 150 },
         { value: 'comfortable', label: 'Comfortable', targetPx: 200 },
         { value: 'cozy', label: 'Cozy', targetPx: 260 },
@@ -150,6 +151,13 @@ export class PostsComponent implements AfterViewInit {
     toolbarHidden = signal(false);
     previewPost = signal<import('@models').BakabooruPostDto | null>(null);
     isMobileViewport = signal(false);
+    toolbarHeightPx = signal(0);
+
+    readonly mobileToolbarInsetPx = computed(() =>
+        this.isMobileViewport() && !this.toolbarHidden()
+            ? this.toolbarHeightPx() + PostsComponent.MOBILE_TOOLBAR_TOP_MARGIN_PX
+            : 0
+    );
 
     readonly totalPages = computed(() => {
         const total = this.totalCount();
@@ -261,6 +269,7 @@ export class PostsComponent implements AfterViewInit {
 
         this.destroyRef.onDestroy(() => {
             this.gridResizeObserver?.disconnect();
+            this.toolbarResizeObserver?.disconnect();
             this.fastScroller.dispose();
             this.clearUrlSyncTimer();
             this.clearScrollIdleTimer();
@@ -279,6 +288,7 @@ export class PostsComponent implements AfterViewInit {
 
         this.gridResizeObserver = new ResizeObserver(() => this.recalculateLayout(false));
         this.gridResizeObserver.observe(shell);
+        this.setupToolbarObserver();
 
         fromEvent(window, 'resize')
             .pipe(auditTime(120), takeUntilDestroyed(this.destroyRef))
@@ -300,6 +310,22 @@ export class PostsComponent implements AfterViewInit {
             this.tryApplyPendingAnchor();
             this.refreshFastScrollerGeometry();
         });
+    }
+
+    private setupToolbarObserver(): void {
+        const toolbar = this.toolbarRef?.nativeElement;
+        if (!toolbar) {
+            this.toolbarHeightPx.set(0);
+            return;
+        }
+
+        const updateToolbarHeight = () => {
+            this.toolbarHeightPx.set(Math.ceil(toolbar.getBoundingClientRect().height));
+        };
+
+        this.toolbarResizeObserver = new ResizeObserver(() => updateToolbarHeight());
+        this.toolbarResizeObserver.observe(toolbar);
+        updateToolbarHeight();
     }
 
     trackVirtualRow = (index: number): string => this.getRowIdByIndex(index);
@@ -455,6 +481,10 @@ export class PostsComponent implements AfterViewInit {
         }
 
         return 'image';
+    }
+
+    getThumbnailUrl(post: import('@models').BakabooruPostDto): string {
+        return this.bakabooru.getThumbnailUrl(post.thumbnailLibraryId, post.thumbnailContentHash);
     }
 
     onPostMouseEnter(post: import('@models').BakabooruPostDto): void {

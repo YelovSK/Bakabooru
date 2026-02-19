@@ -48,16 +48,16 @@ public class CleanupOrphanedThumbnailsJob : IJob
         {
             Phase = "Loading known content hashes..."
         });
-        var knownHashes = (await db.Posts
+        var knownThumbnailRelativePaths = (await db.Posts
                 .AsNoTracking()
                 .Where(p => !string.IsNullOrEmpty(p.ContentHash))
-                .Select(p => p.ContentHash)
+                .Select(p => MediaPaths.GetThumbnailRelativePath(p.LibraryId, p.ContentHash))
                 .Distinct()
                 .ToListAsync(context.CancellationToken))
             .ToHashSet(StringComparer.OrdinalIgnoreCase);
 
         var thumbnailFiles = Directory
-            .EnumerateFiles(_thumbnailPath, MediaPaths.ThumbnailGlobPattern, SearchOption.TopDirectoryOnly)
+            .EnumerateFiles(_thumbnailPath, MediaPaths.ThumbnailGlobPattern, SearchOption.AllDirectories)
             .ToList();
 
         if (thumbnailFiles.Count == 0)
@@ -75,9 +75,9 @@ public class CleanupOrphanedThumbnailsJob : IJob
         }
 
         _logger.LogInformation(
-            "Checking {ThumbnailCount} thumbnails against {KnownHashCount} known hashes",
+            "Checking {ThumbnailCount} thumbnails against {KnownThumbnailCount} known thumbnails",
             thumbnailFiles.Count,
-            knownHashes.Count);
+            knownThumbnailRelativePaths.Count);
 
         int deleted = 0;
         int failed = 0;
@@ -87,9 +87,10 @@ public class CleanupOrphanedThumbnailsJob : IJob
             context.CancellationToken.ThrowIfCancellationRequested();
 
             var filePath = thumbnailFiles[index];
-            var hash = Path.GetFileNameWithoutExtension(filePath);
+            var relativePath = Path.GetRelativePath(_thumbnailPath, filePath)
+                .Replace('\\', '/');
 
-            if (!knownHashes.Contains(hash))
+            if (!knownThumbnailRelativePaths.Contains(relativePath))
             {
                 try
                 {

@@ -1,7 +1,8 @@
-import { ChangeDetectionStrategy, Component, input, output } from '@angular/core';
+import { ChangeDetectionStrategy, Component, inject, input, output } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { BakabooruPostDto } from '@models';
 import { ProgressiveImageComponent } from '@shared/components/progressive-image/progressive-image.component';
+import { BakabooruService } from '@services/api/bakabooru/bakabooru.service';
 
 @Component({
     selector: 'app-post-preview-overlay',
@@ -11,9 +12,18 @@ import { ProgressiveImageComponent } from '@shared/components/progressive-image/
     changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class PostPreviewOverlayComponent {
+    private readonly bakabooru = inject(BakabooruService);
+
     readonly post = input.required<BakabooruPostDto>();
-    readonly mediaBaseUrl = input.required<string>();
     readonly closed = output<void>();
+
+    getThumbnailUrl(post: BakabooruPostDto): string {
+        return this.bakabooru.getThumbnailUrl(post.thumbnailLibraryId, post.thumbnailContentHash);
+    }
+
+    getPostContentUrl(post: BakabooruPostDto): string {
+        return this.bakabooru.getPostContentUrl(post.contentPostId);
+    }
 
     getMediaType(contentType: string): 'image' | 'animation' | 'video' {
         if (contentType.startsWith('video/')) return 'video';

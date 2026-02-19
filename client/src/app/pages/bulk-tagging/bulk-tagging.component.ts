@@ -16,7 +16,6 @@ import { BakabooruService } from '@services/api/bakabooru/bakabooru.service';
 import { AutoTaggingService, TaggingEntry } from '@services/auto-tagging/auto-tagging.service';
 import { RateLimiterService } from '@services/rate-limiting/rate-limiter.service';
 import { ToastService } from '@services/toast.service';
-import { environment } from '@env/environment';
 import { BakabooruPostDto, BakabooruPostListDto, BakabooruTagDto } from '@models';
 import { ButtonComponent } from '@shared/components/button/button.component';
 import { PaginatorComponent } from '@shared/components/paginator/paginator.component';
@@ -54,7 +53,6 @@ export class BulkTaggingComponent {
     private readonly destroyRef = inject(DestroyRef);
 
     readonly appLinks = AppLinks;
-    readonly environment = environment;
 
     // Query parameters from URL
     queryParam = input<string | null>(null, { alias: 'query' });
@@ -85,7 +83,7 @@ export class BulkTaggingComponent {
         return Math.floor(off / this.pageSize()) + 1;
     });
 
-    // Posts state - uses URL query param and includes contentUrl field
+    // Posts state - uses URL query param and includes media key fields
     private postsState$ = combineLatest([
         toObservable(this.queryParam),
         toObservable(this.offset),
@@ -265,12 +263,13 @@ export class BulkTaggingComponent {
 
             // Download the post's content as a File for tagging
             try {
-                const response = await fetch(environment.mediaBaseUrl + post.contentUrl);
+                const contentUrl = this.bakabooru.getPostContentUrl(post.contentPostId);
+                const response = await fetch(contentUrl);
                 if (!response.ok) {
                     throw new Error(`HTTP ${response.status}`);
                 }
                 const blob = await response.blob();
-                const fileName = post.contentUrl.split('/').pop() ?? `post_${post.id}`;
+                const fileName = `post_${post.contentPostId}`;
                 const file = new File([blob], fileName, { type: blob.type });
 
                 // Tag using AutoTaggingService
@@ -483,6 +482,10 @@ export class BulkTaggingComponent {
 
     getTotalTagCount(results: { categorizedTags: unknown[] }[]): number {
         return results.reduce((sum, r) => sum + r.categorizedTags.length, 0);
+    }
+
+    getThumbnailUrl(post: BakabooruPostDto): string {
+        return this.bakabooru.getThumbnailUrl(post.thumbnailLibraryId, post.thumbnailContentHash);
     }
 
     getActiveBackoff(): { apiId: string; waitMs: number; backoffLevel: number } | null {

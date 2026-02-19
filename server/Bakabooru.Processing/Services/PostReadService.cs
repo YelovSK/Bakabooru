@@ -1,6 +1,5 @@
 using Bakabooru.Core.Entities;
 using Bakabooru.Core.DTOs;
-using Bakabooru.Core.Paths;
 using Bakabooru.Core.Results;
 using Bakabooru.Data;
 using Bakabooru.Processing.Extensions;
@@ -48,8 +47,9 @@ public class PostReadService
                 FileModifiedDate = p.FileModifiedDate,
                 IsFavorite = p.IsFavorite,
                 Sources = new List<string>(),
-                ThumbnailUrl = MediaPaths.GetThumbnailUrl(p.ContentHash),
-                ContentUrl = MediaPaths.GetPostContentUrl(p.Id),
+                ThumbnailLibraryId = p.LibraryId,
+                ThumbnailContentHash = p.ContentHash,
+                ContentPostId = p.Id,
                 Tags = new List<TagDto>(),
             })
             .ToListAsync(cancellationToken);
@@ -124,31 +124,31 @@ public class PostReadService
         });
     }
 
-    private async Task<PostDto?> LoadPostAsync(int id, CancellationToken cancellationToken) => await _context.Posts
+    private async Task<PostDto?> LoadPostAsync(int id, CancellationToken cancellationToken)
+    {
+        var postEntity = await _context.Posts
             .AsNoTracking()
             .Where(p => p.Id == id)
             .AsSplitQuery()
-            .Select(postEntity => new PostDto
+            .Select(p => new
             {
-                Id = postEntity.Id,
-                LibraryId = postEntity.LibraryId,
-                LibraryName = postEntity.Library.Name,
-                RelativePath = postEntity.RelativePath,
-                ContentHash = postEntity.ContentHash,
-                SizeBytes = postEntity.SizeBytes,
-                Width = postEntity.Width,
-                Height = postEntity.Height,
-                ContentType = postEntity.ContentType,
-                ImportDate = postEntity.ImportDate,
-                FileModifiedDate = postEntity.FileModifiedDate,
-                IsFavorite = postEntity.IsFavorite,
-                Sources = postEntity.Sources.OrderBy(s => s.Order).Select(s => s.Url).ToList(),
-                ThumbnailUrl = MediaPaths.GetThumbnailUrl(postEntity.ContentHash),
-                ContentUrl = MediaPaths.GetPostContentUrl(postEntity.Id),
-                Tags = postEntity.PostTags
+                Id = p.Id,
+                LibraryId = p.LibraryId,
+                LibraryName = p.Library.Name,
+                RelativePath = p.RelativePath,
+                ContentHash = p.ContentHash,
+                SizeBytes = p.SizeBytes,
+                Width = p.Width,
+                Height = p.Height,
+                ContentType = p.ContentType,
+                ImportDate = p.ImportDate,
+                FileModifiedDate = p.FileModifiedDate,
+                IsFavorite = p.IsFavorite,
+                Sources = p.Sources.OrderBy(s => s.Order).Select(s => s.Url).ToList(),
+                TagLinks = p.PostTags
                     .OrderBy(pt => pt.Tag.TagCategory != null ? pt.Tag.TagCategory.Order : int.MaxValue)
                     .ThenBy(pt => pt.Tag.Name)
-                    .Select(pt => new TagDto
+                    .Select(pt => new
                     {
                         Id = pt.Tag.Id,
                         Name = pt.Tag.Name,
@@ -156,9 +156,56 @@ public class PostReadService
                         CategoryName = pt.Tag.TagCategory != null ? pt.Tag.TagCategory.Name : null,
                         CategoryColor = pt.Tag.TagCategory != null ? pt.Tag.TagCategory.Color : null,
                         Usages = pt.Tag.PostCount,
+                        Source = pt.Source,
                     })
                     .ToList(),
-            }).FirstOrDefaultAsync(cancellationToken);
+            })
+            .FirstOrDefaultAsync(cancellationToken);
+
+        if (postEntity == null)
+        {
+            return null;
+        }
+
+        var tags = postEntity.TagLinks
+            .GroupBy(link => link.Id)
+            .Select(group =>
+            {
+                var first = group.First();
+                return new TagDto
+                {
+                    Id = first.Id,
+                    Name = first.Name,
+                    CategoryId = first.CategoryId,
+                    CategoryName = first.CategoryName,
+                    CategoryColor = first.CategoryColor,
+                    Usages = first.Usages,
+                    Sources = group.Select(link => link.Source).Distinct().OrderBy(source => source).ToList()
+                };
+            })
+            .ToList();
+
+        return new PostDto
+        {
+            Id = postEntity.Id,
+            LibraryId = postEntity.LibraryId,
+            LibraryName = postEntity.LibraryName,
+            RelativePath = postEntity.RelativePath,
+            ContentHash = postEntity.ContentHash,
+            SizeBytes = postEntity.SizeBytes,
+            Width = postEntity.Width,
+            Height = postEntity.Height,
+            ContentType = postEntity.ContentType,
+            ImportDate = postEntity.ImportDate,
+            FileModifiedDate = postEntity.FileModifiedDate,
+            IsFavorite = postEntity.IsFavorite,
+            Sources = postEntity.Sources,
+            ThumbnailLibraryId = postEntity.LibraryId,
+            ThumbnailContentHash = postEntity.ContentHash,
+            ContentPostId = postEntity.Id,
+            Tags = tags,
+        };
+    }
 
     private async Task<IQueryable<Post>> ApplySearchFiltersAsync(IQueryable<Post> query, SearchQuery parsedQuery, CancellationToken cancellationToken)
     {

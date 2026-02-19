@@ -164,9 +164,9 @@ public class TagService
             return Result.Failure(OperationError.NotFound, "Target tag not found.");
         }
 
-        var targetPostIds = await _context.PostTags
+        var targetAssignments = await _context.PostTags
             .Where(pt => pt.TagId == target.Id)
-            .Select(pt => pt.PostId)
+            .Select(pt => new { pt.PostId, pt.Source })
             .ToHashSetAsync();
 
         var sourceLinks = await _context.PostTags
@@ -175,12 +175,14 @@ public class TagService
 
         foreach (var link in sourceLinks)
         {
-            if (!targetPostIds.Contains(link.PostId))
+            var targetKey = new { link.PostId, link.Source };
+            if (!targetAssignments.Contains(targetKey))
             {
                 _context.PostTags.Add(new PostTag
                 {
                     PostId = link.PostId,
-                    TagId = target.Id
+                    TagId = target.Id,
+                    Source = link.Source
                 });
             }
         }
@@ -241,4 +243,3 @@ public class TagService
         return sanitized.Trim('_');
     }
 }
-

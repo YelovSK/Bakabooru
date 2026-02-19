@@ -9,4 +9,6 @@ public class PostTag
     
     public int TagId { get; set; }
     public Tag Tag { get; set; } = null!;
+
+    public PostTagSource Source { get; set; } = PostTagSource.Manual;
 }

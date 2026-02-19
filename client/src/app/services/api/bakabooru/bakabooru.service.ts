@@ -29,6 +29,10 @@ import {
     JobMode,
     DuplicateGroup,
     ExcludedFile,
+    SameFolderDuplicateGroup,
+    DeleteSameFolderDuplicateRequest,
+    ResolveSameFolderGroupRequest,
+    ResolveSameFolderResponse,
 } from "./models";
 
 @Injectable({
@@ -36,6 +40,7 @@ import {
 })
 export class BakabooruService {
     private baseUrl = environment.apiBaseUrl;
+    private mediaBaseUrl = environment.mediaBaseUrl;
     private authCheckInFlight$: Observable<boolean> | null = null;
 
     // Client auth state.
@@ -47,6 +52,12 @@ export class BakabooruService {
     private http = inject(HttpClient);
 
     constructor() { }
+
+    private joinMediaUrl(path: string): string {
+        const base = this.mediaBaseUrl.endsWith('/') ? this.mediaBaseUrl.slice(0, -1) : this.mediaBaseUrl;
+        const suffix = path.startsWith('/') ? path : `/${path}`;
+        return `${base}${suffix}`;
+    }
 
     // --- Auth ---
     login(username: string, password: string): Observable<void> {
@@ -186,8 +197,12 @@ export class BakabooruService {
         return this.http.get<BakabooruPostDto>(`${this.baseUrl}/posts/${id}`);
     }
 
-    getPostContentUrl(id: number): string {
-        return `${this.baseUrl}/posts/${id}/content`;
+    getThumbnailUrl(libraryId: number, contentHash: string): string {
+        return this.joinMediaUrl(`/thumbnails/${libraryId}/${contentHash}.webp`);
+    }
+
+    getPostContentUrl(postId: number): string {
+        return this.joinMediaUrl(`${this.baseUrl}/posts/${postId}/content`);
     }
 
     // --- System ---
@@ -323,7 +338,23 @@ export class BakabooruService {
     }
 
     getExcludedFileContentUrl(id: number): string {
-        return `${this.baseUrl}/duplicates/excluded/${id}/content`;
+        return this.joinMediaUrl(`${this.baseUrl}/duplicates/excluded/${id}/content`);
+    }
+
+    getSameFolderDuplicateGroups(): Observable<SameFolderDuplicateGroup[]> {
+        return this.http.get<SameFolderDuplicateGroup[]>(`${this.baseUrl}/duplicates/same-folder`);
+    }
+
+    deleteSameFolderDuplicate(request: DeleteSameFolderDuplicateRequest): Observable<void> {
+        return this.http.post<void>(`${this.baseUrl}/duplicates/same-folder/delete`, request);
+    }
+
+    resolveSameFolderGroup(request: ResolveSameFolderGroupRequest): Observable<ResolveSameFolderResponse> {
+        return this.http.post<ResolveSameFolderResponse>(`${this.baseUrl}/duplicates/same-folder/resolve-group`, request);
+    }
+
+    resolveAllSameFolderDuplicates(): Observable<ResolveSameFolderResponse> {
+        return this.http.post<ResolveSameFolderResponse>(`${this.baseUrl}/duplicates/same-folder/resolve-all`, {});
     }
 
 }

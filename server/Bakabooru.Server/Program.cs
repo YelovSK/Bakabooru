@@ -169,8 +169,11 @@ if (app.Environment.IsDevelopment())
             await next();
             if (context.Response.StatusCode == 404)
             {
-                var requestedFile = Path.GetFileName(context.Request.Path.Value ?? string.Empty);
-                var filePath = Path.Combine(thumbnailPath, requestedFile);
+                var requestPath = context.Request.Path.Value ?? string.Empty;
+                var relativePath = requestPath.StartsWith(MediaPaths.ThumbnailsRequestPath, StringComparison.OrdinalIgnoreCase)
+                    ? requestPath[MediaPaths.ThumbnailsRequestPath.Length..].TrimStart('/')
+                    : requestPath.TrimStart('/');
+                var filePath = Path.Combine(thumbnailPath, relativePath.Replace('/', Path.DirectorySeparatorChar));
                 var exists = File.Exists(filePath);
                 app.Logger.LogWarning("Thumbnail 404: {Url} (File exists at {Path}: {Exists})", context.Request.Path, filePath, exists);
             }

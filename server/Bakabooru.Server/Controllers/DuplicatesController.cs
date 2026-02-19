@@ -26,6 +26,15 @@ public class DuplicatesController : ControllerBase
     }
 
     /// <summary>
+    /// Returns unresolved duplicate candidates grouped by same library+folder partitions.
+    /// </summary>
+    [HttpGet("same-folder")]
+    public async Task<ActionResult<IEnumerable<SameFolderDuplicateGroupDto>>> GetSameFolderDuplicateGroups(CancellationToken cancellationToken)
+    {
+        return Ok(await _duplicateService.GetSameFolderDuplicateGroupsAsync(cancellationToken));
+    }
+
+    /// <summary>
     /// Resolve a group by keeping all posts (dismiss the group).
     /// </summary>
     [HttpPost("{groupId}/keep-all")]
@@ -52,6 +61,37 @@ public class DuplicatesController : ControllerBase
     public async Task<ActionResult<ResolveAllExactResponseDto>> ResolveAllExact()
     {
         return Ok(await _duplicateService.ResolveAllExactAsync());
+    }
+
+    /// <summary>
+    /// Delete one post from a same-folder duplicate partition.
+    /// </summary>
+    [HttpPost("same-folder/delete")]
+    public async Task<IActionResult> DeleteSameFolderDuplicate(
+        [FromBody] DeleteSameFolderDuplicateRequestDto request,
+        CancellationToken cancellationToken)
+    {
+        return await _duplicateService.DeleteSameFolderDuplicateAsync(request, cancellationToken).ToHttpResult();
+    }
+
+    /// <summary>
+    /// Resolve one same-folder duplicate partition by keeping the best quality post.
+    /// </summary>
+    [HttpPost("same-folder/resolve-group")]
+    public async Task<IActionResult> ResolveSameFolderGroup(
+        [FromBody] ResolveSameFolderGroupRequestDto request,
+        CancellationToken cancellationToken)
+    {
+        return await _duplicateService.ResolveSameFolderGroupAsync(request, cancellationToken).ToHttpResult();
+    }
+
+    /// <summary>
+    /// Resolve all same-folder duplicate partitions by keeping the best quality post in each.
+    /// </summary>
+    [HttpPost("same-folder/resolve-all")]
+    public async Task<IActionResult> ResolveAllSameFolder(CancellationToken cancellationToken)
+    {
+        return await _duplicateService.ResolveAllSameFolderAsync(cancellationToken).ToHttpResult();
     }
 
     /// <summary>

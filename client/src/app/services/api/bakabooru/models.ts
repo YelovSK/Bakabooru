@@ -76,6 +76,13 @@ export interface BakabooruTagDto {
     categoryName: string | null;
     categoryColor: string | null;
     usages: number;
+    sources?: PostTagSource[];
+}
+
+export enum PostTagSource {
+    Manual = 0,
+    Folder = 1,
+    Ai = 2
 }
 
 export interface BakabooruPostDto {
@@ -90,8 +97,9 @@ export interface BakabooruPostDto {
     contentType: string;
     importDate: string;
     fileModifiedDate: string;
-    thumbnailUrl: string;
-    contentUrl: string;
+    thumbnailLibraryId: number;
+    thumbnailContentHash: string;
+    contentPostId: number;
     isFavorite: boolean;
     sources: string[];
     tags: BakabooruTagDto[];
@@ -202,8 +210,10 @@ export interface DuplicatePost {
     contentType: string;
     sizeBytes: number;
     importDate: string;
-    thumbnailUrl: string;
-    contentUrl: string;
+    fileModifiedDate: string;
+    thumbnailLibraryId: number;
+    thumbnailContentHash: string;
+    contentPostId: number;
 }
 
 export interface DuplicateGroup {
@@ -222,4 +232,49 @@ export interface ExcludedFile {
     contentHash: string | null;
     excludedDate: string;
     reason: string;
+}
+
+export interface SameFolderDuplicatePost {
+    id: number;
+    libraryId: number;
+    relativePath: string;
+    contentHash: string;
+    width: number;
+    height: number;
+    sizeBytes: number;
+    importDate: string;
+    fileModifiedDate: string;
+    thumbnailLibraryId: number;
+    thumbnailContentHash: string;
+    contentPostId: number;
+}
+
+export interface SameFolderDuplicateGroup {
+    parentDuplicateGroupId: number;
+    duplicateType: 'exact' | 'perceptual';
+    similarityPercent: number | null;
+    libraryId: number;
+    libraryName: string;
+    folderPath: string;
+    recommendedKeepPostId: number;
+    posts: SameFolderDuplicatePost[];
+}
+
+export interface DeleteSameFolderDuplicateRequest {
+    parentDuplicateGroupId: number;
+    libraryId: number;
+    folderPath: string;
+    postId: number;
+}
+
+export interface ResolveSameFolderGroupRequest {
+    parentDuplicateGroupId: number;
+    libraryId: number;
+    folderPath: string;
+}
+
+export interface ResolveSameFolderResponse {
+    resolvedGroups: number;
+    deletedPosts: number;
+    skippedGroups: number;
 }

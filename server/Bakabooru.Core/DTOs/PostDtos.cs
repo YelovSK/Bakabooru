@@ -15,8 +15,9 @@ public class PostDto
     public DateTime FileModifiedDate { get; set; }
     public bool IsFavorite { get; set; }
     public List<string> Sources { get; set; } = [];
-    public string ThumbnailUrl { get; set; } = string.Empty;
-    public string ContentUrl { get; set; } = string.Empty;
+    public int ThumbnailLibraryId { get; set; }
+    public string ThumbnailContentHash { get; set; } = string.Empty;
+    public int ContentPostId { get; set; }
     public List<TagDto> Tags { get; set; } = [];
 }
 

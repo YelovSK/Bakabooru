@@ -60,7 +60,7 @@
 
                     @if (!editService.isEditing()) {
                     <div class="flex flex-row gap-2 mb-4">
-                        <app-button [href]="environment.mediaBaseUrl + pd.contentUrl" variant="primary" class="flex-1">
+                        <app-button [href]="getPostContentUrl(pd)" variant="primary" class="flex-1">
                             Original File
                         </app-button>
                         <app-button variant="secondary" class="flex-1" [class.!bg-status-error/10]="pd.isFavorite"
@@ -112,7 +112,15 @@
                                 <span
                                     class="text-text-link flex-1 overflow-hidden text-ellipsis whitespace-nowrap min-w-0">{{
                                     tag.name }}</span>
-                                <span class="text-text-dim shrink-0">{{ tag.usages }}</span>
+                                <div class="flex shrink-0 items-center gap-2">
+                                    @if (hasTagSource(tag, postTagSource.Folder)) {
+                                    <span
+                                        class="inline-flex items-center gap-1 rounded-full border border-amber-300/35 bg-amber-500/10 px-2 py-[0.15rem] text-[0.68rem] font-semibold text-amber-200">
+                                        <span>folder</span>
+                                    </span>
+                                    }
+                                    <span class="text-text-dim">{{ tag.usages }}</span>
+                                </div>
                             </a>
                             }
                         </div>
@@ -168,12 +176,12 @@
             @switch (getMediaType(pd.contentType)) {
             @case ('image')
             @case ('animation') {
-            <app-progressive-image [thumbnailSrc]="environment.mediaBaseUrl + pd.thumbnailUrl"
-                [fullSrc]="environment.mediaBaseUrl + pd.contentUrl" [alt]="'' + pd.id" [width]="pd.width"
+            <app-progressive-image [thumbnailSrc]="getThumbnailUrl(pd)"
+                [fullSrc]="getPostContentUrl(pd)" [alt]="'' + pd.id" [width]="pd.width"
                 [height]="pd.height" />
             }
             @case ('video') {
-            <video [src]="environment.mediaBaseUrl + pd.contentUrl" (loadeddata)="imageLoading.set(false)"
+            <video [src]="getPostContentUrl(pd)" (loadeddata)="imageLoading.set(false)"
                 class="w-full h-full object-contain" controls [autoplay]="autoPlayVideos()" [muted]="startVideosMuted()"
                 loop></video>
             }

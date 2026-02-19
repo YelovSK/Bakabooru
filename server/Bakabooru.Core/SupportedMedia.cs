@@ -7,7 +7,7 @@ public static class SupportedMedia
 {
     public static readonly HashSet<string> ImageExtensions = new(StringComparer.OrdinalIgnoreCase)
     {
-        ".jpg", ".jpeg", ".png", ".gif", ".bmp", ".tga", ".webp"
+        ".jpg", ".jpeg", ".png", ".gif", ".bmp", ".tga", ".webp", ".jxl"
     };
 
     public static readonly HashSet<string> VideoExtensions = new(StringComparer.OrdinalIgnoreCase)
@@ -16,18 +16,10 @@ public static class SupportedMedia
     };
 
     /// <summary>
-    /// Formats that require FFmpeg for processing (videos + special image formats).
-    /// </summary>
-    public static readonly HashSet<string> FfmpegExtensions = new(StringComparer.OrdinalIgnoreCase)
-    {
-        ".mp4", ".webm", ".mkv", ".avi", ".mov", ".jxl"
-    };
-
-    /// <summary>
     /// All supported file extensions (images + videos + special formats).
     /// </summary>
     public static readonly HashSet<string> AllExtensions = new(
-        ImageExtensions.Concat(VideoExtensions).Concat(new[] { ".jxl" }),
+        ImageExtensions.Concat(VideoExtensions),
         StringComparer.OrdinalIgnoreCase);
 
     /// <summary>
@@ -55,8 +47,6 @@ public static class SupportedMedia
     public static bool IsVideo(string extension) => VideoExtensions.Contains(extension);
 
     public static bool IsSupported(string extension) => AllExtensions.Contains(extension);
-
-    public static bool RequiresFfmpeg(string extension) => FfmpegExtensions.Contains(extension);
 
     public static string GetMimeType(string extension)
         => MimeMap.GetValueOrDefault(extension, "application/octet-stream");

@@ -13,7 +13,7 @@ namespace Bakabooru.Processing.Jobs;
 
 public class GenerateThumbnailsJob : IJob
 {
-    private sealed record ThumbnailCandidate(int Id, string ContentHash, string RelativePath, string LibraryPath);
+    private sealed record ThumbnailCandidate(int Id, int LibraryId, string ContentHash, string RelativePath, string LibraryPath);
 
     private readonly IServiceScopeFactory _scopeFactory;
     private readonly ILogger<GenerateThumbnailsJob> _logger;
@@ -92,7 +92,7 @@ public class GenerateThumbnailsJob : IJob
             var batch = await query
                 .Where(p => p.Id > lastId)
                 .OrderBy(p => p.Id)
-                .Select(p => new ThumbnailCandidate(p.Id, p.ContentHash!, p.RelativePath, p.Library.Path))
+                .Select(p => new ThumbnailCandidate(p.Id, p.LibraryId, p.ContentHash!, p.RelativePath, p.Library.Path))
                 .Take(batchSize)
                 .ToListAsync(context.CancellationToken);
 
@@ -112,7 +112,7 @@ public class GenerateThumbnailsJob : IJob
             else
             {
                 toProcess = batch
-                    .Where(p => !File.Exists(MediaPaths.GetThumbnailFilePath(_thumbnailPath, p.ContentHash)))
+                    .Where(p => !File.Exists(MediaPaths.GetThumbnailFilePath(_thumbnailPath, p.LibraryId, p.ContentHash)))
                     .ToList();
 
                 skipped += batch.Count - toProcess.Count;
@@ -123,7 +123,12 @@ public class GenerateThumbnailsJob : IJob
                 try
                 {
                     var fullPath = Path.Combine(post.LibraryPath, post.RelativePath);
-                    var destination = MediaPaths.GetThumbnailFilePath(_thumbnailPath, post.ContentHash);
+                    var destination = MediaPaths.GetThumbnailFilePath(_thumbnailPath, post.LibraryId, post.ContentHash);
+                    var destinationDirectory = Path.GetDirectoryName(destination);
+                    if (!string.IsNullOrWhiteSpace(destinationDirectory))
+                    {
+                        Directory.CreateDirectory(destinationDirectory);
+                    }
                     await mediaFileProcessor.GenerateThumbnailAsync(fullPath, destination, 400, ct);
                     Interlocked.Increment(ref processed);
                 }

@@ -4,7 +4,7 @@
 
         @switch (getMediaType(post().contentType)) {
         @case ('video') {
-        <video [src]="mediaBaseUrl() + post().contentUrl" class="block max-h-[80vh] max-w-[80vw] object-contain"
+        <video [src]="getPostContentUrl(post())" class="block max-h-[80vh] max-w-[80vw] object-contain"
             autoplay muted loop playsinline>
         </video>
         }
@@ -16,8 +16,8 @@
         <div class="relative max-h-[80vh] max-w-[80vw]"
             [style.aspect-ratio]="post().width && post().height ? post().width + '/' + post().height : '1/1'"
             [style.width]="post().width && post().height ? 'min(80vw, 80vh * ' + post().width + ' / ' + post().height + ')' : '60vw'">
-            <app-progressive-image [thumbnailSrc]="mediaBaseUrl() + post().thumbnailUrl"
-                [fullSrc]="mediaBaseUrl() + post().contentUrl" [alt]="'Post ' + post().id"
+            <app-progressive-image [thumbnailSrc]="getThumbnailUrl(post())"
+                [fullSrc]="getPostContentUrl(post())" [alt]="'Post ' + post().id"
                 [width]="post().width || null" [height]="post().height || null" />
         </div>
         }

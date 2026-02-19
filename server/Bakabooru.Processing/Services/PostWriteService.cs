@@ -31,13 +31,21 @@ public class PostWriteService
             await _context.SaveChangesAsync();
         }
 
-        var alreadyAssigned = await _context.PostTags.AnyAsync(pt => pt.PostId == postId && pt.TagId == tag.Id);
+        var alreadyAssigned = await _context.PostTags.AnyAsync(pt =>
+            pt.PostId == postId
+            && pt.TagId == tag.Id
+            && pt.Source == PostTagSource.Manual);
         if (alreadyAssigned)
         {
             return Result.Failure(OperationError.Conflict, "Tag already assigned");
         }
 
-        _context.PostTags.Add(new PostTag { PostId = postId, TagId = tag.Id });
+        _context.PostTags.Add(new PostTag
+        {
+            PostId = postId,
+            TagId = tag.Id,
+            Source = PostTagSource.Manual
+        });
         await _context.SaveChangesAsync();
 
         return Result.Success();
@@ -49,7 +57,10 @@ public class PostWriteService
         if (!postExists) return Result.Failure(OperationError.NotFound, "Post not found");
 
         var postTag = await _context.PostTags
-            .Where(pt => pt.PostId == postId && pt.Tag.Name == tagName)
+            .Where(pt =>
+                pt.PostId == postId
+                && pt.Source == PostTagSource.Manual
+                && pt.Tag.Name == tagName)
             .FirstOrDefaultAsync();
         if (postTag == null) return Result.Failure(OperationError.NotFound, "Tag not found on post");
 
@@ -160,7 +171,7 @@ public class PostWriteService
             var desiredTagLookup = desiredTags.ToHashSet(StringComparer.OrdinalIgnoreCase);
 
             var existingPostTags = await _context.PostTags
-                .Where(pt => pt.PostId == postId)
+                .Where(pt => pt.PostId == postId && pt.Source == PostTagSource.Manual)
                 .Include(pt => pt.Tag)
                 .ToListAsync();
 
@@ -199,7 +210,8 @@ public class PostWriteService
                     _context.PostTags.Add(new PostTag
                     {
                         PostId = postId,
-                        Tag = tag
+                        Tag = tag,
+                        Source = PostTagSource.Manual
                     });
                 }
             }

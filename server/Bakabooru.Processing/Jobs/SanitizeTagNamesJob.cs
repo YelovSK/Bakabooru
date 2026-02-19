@@ -99,7 +99,7 @@ public class SanitizeTagNamesJob : IJob
                         // Move PostTag links from victim to survivor (skip duplicates)
                         var survivorPostIds = await db.PostTags
                             .Where(pt => pt.TagId == survivor.Id)
-                            .Select(pt => pt.PostId)
+                            .Select(pt => new { pt.PostId, pt.Source })
                             .ToHashSetAsync(context.CancellationToken);
 
                         var victimLinks = await db.PostTags
@@ -108,12 +108,14 @@ public class SanitizeTagNamesJob : IJob
 
                         foreach (var link in victimLinks)
                         {
-                            if (!survivorPostIds.Contains(link.PostId))
+                            var survivorKey = new { link.PostId, link.Source };
+                            if (!survivorPostIds.Contains(survivorKey))
                             {
                                 db.PostTags.Add(new Core.Entities.PostTag
                                 {
                                     PostId = link.PostId,
-                                    TagId = survivor.Id
+                                    TagId = survivor.Id,
+                                    Source = link.Source
                                 });
                             }
                         }
