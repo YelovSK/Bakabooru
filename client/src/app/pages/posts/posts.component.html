@@ -67,34 +67,33 @@
             [appPostsCyclicGridStrategyMinBufferRows]="virtualMinBufferRows()"
             [appPostsCyclicGridStrategyMaxBufferRows]="virtualMaxBufferRows()" [style.height.px]="viewportHeightPx()">
 
-            <div class="virtual-row relative flex w-full items-stretch box-border [contain:layout_paint_style]"
+            <div class="virtual-row relative flex w-full items-stretch box-border contain-strict"
                 *cdkVirtualFor="let _rowItem of virtualRowDataSource; let rowIndex = index; trackBy: trackVirtualRow"
                 [style.height.px]="getRowHeightPx(rowIndex)" [class.items-center]="isSeparatorRow(rowIndex)">
 
-                @if (getVirtualRow(rowIndex); as row) {
-                @if (row.kind === 'separator') {
+                @if (getVirtualRowPosition(rowIndex); as pos) {
+                @if (pos.rowOffsetInPage === 0) {
                 <div class="flex h-full w-full items-center gap-[0.6rem] box-border">
                     <span
                         class="h-px flex-1 bg-[linear-gradient(90deg,transparent,rgba(148,163,184,0.34),transparent)]"></span>
                     <span
                         class="rounded-full border border-slate-400/30 bg-slate-950/80 px-[0.72rem] py-[0.3rem] text-[0.73rem] leading-none font-bold uppercase tracking-[0.09em] text-text-muted">Page
-                        {{ row.page }}</span>
+                        {{ pos.page }}</span>
                     <span
                         class="h-px flex-1 bg-[linear-gradient(90deg,transparent,rgba(148,163,184,0.34),transparent)]"></span>
                 </div>
                 } @else {
-                <div class="grid h-full w-full box-border content-start [contain:layout_paint_style]"
+                <div class="grid h-full w-full box-border content-start"
                     [style.gridTemplateColumns]="gridTemplateColumns()" [style.columnGap.px]="gridGapPx"
                     [style.paddingTop.px]="gridGapPx / 2" [style.paddingBottom.px]="gridGapPx / 2">
-                    @for (cell of getRowCells(row); track cell.trackKey) {
+                    @for (cell of getRowCells(rowIndex); track $index) {
                     @if (cell.kind === 'post') {
                     @if (cell.post; as post) {
-                    <a class="post-tile group relative block aspect-square overflow-hidden rounded-xl border border-slate-400/12 bg-bg-secondary [contain:layout_paint_style] transition-[transform,box-shadow,border-color] duration-200 hover:z-[2] hover:-translate-y-[1px] hover:scale-[1.012] hover:border-sky-400/50 hover:shadow-[0_10px_22px_rgba(15,23,42,0.36)]"
-                        [routerLink]="appLinks.post(post.id)" [queryParams]="{ query: activeQuery() || null }"
-                        (mouseenter)="onPostMouseEnter(post)" (mouseleave)="onPostMouseLeave($event)">
+                    <a class="post-tile group relative block aspect-square overflow-hidden rounded-xl border border-slate-400/12 bg-bg-secondary transition-[transform,box-shadow,border-color] duration-200 hover:z-[2] hover:-translate-y-[1px] hover:scale-[1.012] hover:border-sky-400/50 hover:shadow-[0_10px_22px_rgba(15,23,42,0.36)]"
+                        [routerLink]="'/' + appPaths.post + '/' + post.id" [queryParams]="activeQueryParams()"
+                        [attr.data-post-id]="post.id">
                         <img [src]="getThumbnailUrl(post)" [alt]="'Post ' + post.id"
-                            class="block h-full w-full object-cover" decoding="async"
-                            [attr.loading]="row.page === currentPage() && row.rowInPage === 0 ? 'eager' : 'lazy'" />
+                            class="block h-full w-full object-cover" decoding="async" />
 
                         @if (post.isFavorite) {
                         <div
@@ -134,8 +133,7 @@
                     </a>
                     }
                     } @else if (cell.kind === 'skeleton') {
-                    <div
-                        class="aspect-square rounded-xl border border-slate-400/18 bg-[#22324a] [contain:layout_paint_style]">
+                    <div class="aspect-square rounded-xl border border-slate-400/18 bg-[#22324a]">
                     </div>
                     } @else {
                     <!-- Leave this empty -->
@@ -143,11 +141,11 @@
                     }
                 </div>
 
-                @if (row.rowInPage === 0 && getPageStatus(row.page) === 'error') {
+                @if (pos.rowOffsetInPage === 1 && getPageStatus(pos.page) === 'error') {
                 <button type="button"
                     class="absolute top-[0.35rem] right-[0.35rem] z-[7] rounded-full border border-red-400/70 bg-red-900/75 px-[0.55rem] py-[0.3rem] text-[0.67rem] leading-none font-bold text-red-200"
-                    (click)="retryPage(row.page)">
-                    Retry page {{ row.page }}
+                    (click)="retryPage(pos.page)">
+                    Retry page {{ pos.page }}
                 </button>
                 }
                 }
@@ -159,9 +157,7 @@
         </div>
 
         <div #fastScrollerRail class="fast-scroller-rail" [class.fast-scroller-visible]="fastScrollerVisible()"
-            [class.fast-scroller-dragging]="fastScrollerDragging()" (pointerdown)="onFastScrollerPointerDown($event)"
-            (pointermove)="onFastScrollerPointerMove($event)" (pointerup)="onFastScrollerPointerUp($event)"
-            (pointercancel)="onFastScrollerPointerCancel($event)">
+            [class.fast-scroller-dragging]="fastScrollerDragging()">
             <div class="fast-scroller-thumb absolute top-0 left-1/2 w-[6px] -translate-x-1/2 rounded-full bg-gradient-to-b from-sky-400/95 to-sky-500/95 shadow-[0_5px_14px_rgba(2,132,199,0.42)]"
                 [style.height.px]="fastScrollerThumbHeightPx()"
                 [style.transform]="'translateY(' + fastScrollerThumbTopPx() + 'px)'">

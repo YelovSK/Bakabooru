@@ -11,6 +11,7 @@ import {
     inject,
     input,
     signal,
+    NgZone,
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { Router, RouterLink } from '@angular/router';
@@ -33,7 +34,7 @@ import { HotkeysService } from '@services/hotkeys.service';
 import { BakabooruTagDto } from '@models';
 import { AutocompleteComponent } from '@shared/components/autocomplete/autocomplete.component';
 import { escapeTagName } from '@shared/utils/utils';
-import { AppLinks } from '@app/app.paths';
+import { AppLinks, AppPaths } from '@app/app.paths';
 import { StorageService, STORAGE_KEYS } from '@services/storage.service';
 import { PostPreviewOverlayComponent } from '@shared/components/post-preview-overlay/post-preview-overlay.component';
 import {
@@ -109,6 +110,7 @@ export class PostsComponent implements AfterViewInit {
     private urlSyncTimer: ReturnType<typeof setTimeout> | null = null;
     private scrollIdleTimer: ReturnType<typeof setTimeout> | null = null;
     private hoverPreviewTimer: ReturnType<typeof setTimeout> | null = null;
+    private scrollRafId: number | null = null;
 
     private readonly bakabooru = inject(BakabooruService);
     private readonly router = inject(Router);
@@ -117,8 +119,10 @@ export class PostsComponent implements AfterViewInit {
     private readonly destroyRef = inject(DestroyRef);
     private readonly pageCacheStore = inject(PostsPageCacheStore);
     private readonly fastScroller = inject(PostsFastScrollerController);
+    private readonly zone = inject(NgZone);
 
     readonly appLinks = AppLinks;
+    readonly appPaths = AppPaths;
 
     query = input<string | null>('');
     page = input<string | null>(null);
@@ -135,6 +139,7 @@ export class PostsComponent implements AfterViewInit {
     density = signal<GridDensity>(this.getInitialDensity());
 
     activeQuery = signal('');
+    readonly activeQueryParams = computed(() => ({ query: this.activeQuery() || null }));
     readonly totalCount = this.pageCacheStore.totalCount;
     readonly isInitialLoading = this.pageCacheStore.isInitialLoading;
 
@@ -275,6 +280,10 @@ export class PostsComponent implements AfterViewInit {
             this.clearScrollIdleTimer();
             this.clearHoverPreviewTimer();
             this.virtualRowDataSource.disconnect();
+            if (this.scrollRafId !== null) {
+                cancelAnimationFrame(this.scrollRafId);
+                this.scrollRafId = null;
+            }
         });
 
         this.setupHotkeys();
@@ -301,8 +310,39 @@ export class PostsComponent implements AfterViewInit {
                 .subscribe(range => this.handleRenderedRange(range.start, range.end));
 
             viewport.elementScrolled()
-                .pipe(auditTime(16), takeUntilDestroyed(this.destroyRef))
-                .subscribe(() => this.onViewportScrolled());
+                .pipe(takeUntilDestroyed(this.destroyRef))
+                .subscribe(() => {
+                    if (this.scrollRafId !== null) {
+                        return;
+                    }
+
+                    this.scrollRafId = requestAnimationFrame(() => {
+                        this.scrollRafId = null;
+                        this.zone.run(() => this.onViewportScrolled());
+                    });
+                });
+
+            this.zone.runOutsideAngular(() => {
+                const el = viewport.elementRef.nativeElement;
+                fromEvent<MouseEvent>(el, 'mouseover').pipe(takeUntilDestroyed(this.destroyRef))
+                    .subscribe(e => this.handleViewportMouseOver(e));
+                fromEvent<MouseEvent>(el, 'mouseout').pipe(takeUntilDestroyed(this.destroyRef))
+                    .subscribe(e => this.handleViewportMouseOut(e));
+            });
+        }
+
+        const rail = this.fastScrollerRailRef?.nativeElement;
+        if (rail) {
+            this.zone.runOutsideAngular(() => {
+                fromEvent<PointerEvent>(rail, 'pointerdown').pipe(takeUntilDestroyed(this.destroyRef))
+                    .subscribe(e => this.onFastScrollerPointerDown(e));
+                fromEvent<PointerEvent>(rail, 'pointermove').pipe(takeUntilDestroyed(this.destroyRef))
+                    .subscribe(e => this.onFastScrollerPointerMove(e));
+                fromEvent<PointerEvent>(rail, 'pointerup').pipe(takeUntilDestroyed(this.destroyRef))
+                    .subscribe(e => this.onFastScrollerPointerUp(e));
+                fromEvent<PointerEvent>(rail, 'pointercancel').pipe(takeUntilDestroyed(this.destroyRef))
+                    .subscribe(e => this.onFastScrollerPointerCancel(e));
+            });
         }
 
         queueMicrotask(() => {
@@ -336,37 +376,6 @@ export class PostsComponent implements AfterViewInit {
 
     getRowHeightPx(rowIndex: number): number {
         return this.isSeparatorRow(rowIndex) ? this.separatorRowHeightPx() : this.rowItemHeightPx();
-    }
-
-    getVirtualRow(rowIndex: number): VirtualRow | null {
-        const position = this.getVirtualRowPosition(rowIndex);
-        if (!position) {
-            return null;
-        }
-
-        const pageBaseOffset = (position.page - 1) * PostsComponent.PAGE_SIZE;
-        if (position.rowOffsetInPage === 0) {
-            return {
-                kind: 'separator',
-                page: position.page,
-                rowId: this.getSeparatorRowId(position.page),
-                startOffset: pageBaseOffset,
-            };
-        }
-
-        const rowInPage = position.rowOffsetInPage - 1;
-        const columns = Math.max(1, this.columns());
-        const rowStart = rowInPage * columns;
-        const count = Math.min(columns, Math.max(0, position.pageItemCount - rowStart));
-
-        return {
-            kind: 'posts',
-            page: position.page,
-            rowId: this.getPostRowId(position.page, rowInPage),
-            rowInPage,
-            startOffset: pageBaseOffset + rowStart,
-            count,
-        };
     }
 
     onQueryChange(word: string): void {
@@ -419,21 +428,30 @@ export class PostsComponent implements AfterViewInit {
         return this.pageCache().get(pageNumber)?.status ?? 'idle';
     }
 
-    getRowCells(row: PostRow): GridCell[] {
-        const cached = this.rowCellsCache.get(row.rowId);
+    getRowCells(rowIndex: number): GridCell[] {
+        const position = this.getVirtualRowPosition(rowIndex);
+        if (!position || position.rowOffsetInPage === 0) {
+            return [];
+        }
+
+        const rowInPage = position.rowOffsetInPage - 1;
+        const rowId = this.getPostRowId(position.page, rowInPage);
+
+        const cached = this.rowCellsCache.get(rowId);
         if (cached) {
             return cached;
         }
 
         const cells: GridCell[] = [];
-        const columns = this.columns();
-        const entry = this.pageCache().get(row.page);
+        const columns = Math.max(1, this.columns());
+        const entry = this.pageCache().get(position.page);
 
-        const startInPage = row.rowInPage * columns;
+        const startInPage = rowInPage * columns;
+        const count = Math.min(columns, Math.max(0, position.pageItemCount - startInPage));
 
         for (let col = 0; col < columns; col += 1) {
             const cellIndexInPage = startInPage + col;
-            const shouldHaveContent = col < row.count;
+            const shouldHaveContent = col < count;
 
             if (entry?.status === 'ready' && shouldHaveContent) {
                 const post = entry.items[cellIndexInPage] ?? null;
@@ -451,7 +469,7 @@ export class PostsComponent implements AfterViewInit {
                 cells.push({
                     kind: 'skeleton',
                     post: null,
-                    trackKey: `skeleton-${row.rowId}-${col}`,
+                    trackKey: `skeleton-${rowId}-${col}`,
                 });
                 continue;
             }
@@ -459,11 +477,11 @@ export class PostsComponent implements AfterViewInit {
             cells.push({
                 kind: 'placeholder',
                 post: null,
-                trackKey: `placeholder-${row.rowId}-${col}`,
+                trackKey: `placeholder-${rowId}-${col}`,
             });
         }
 
-        this.rowCellsCache.set(row.rowId, cells);
+        this.rowCellsCache.set(rowId, cells);
         return cells;
     }
 
@@ -487,24 +505,44 @@ export class PostsComponent implements AfterViewInit {
         return this.bakabooru.getThumbnailUrl(post.thumbnailLibraryId, post.thumbnailContentHash);
     }
 
-    onPostMouseEnter(post: import('@models').BakabooruPostDto): void {
-        this.clearHoverPreviewTimer();
-        this.hoverPreviewTimer = setTimeout(() => {
-            this.previewPost.set(post);
-        }, PostsComponent.HOVER_PREVIEW_DELAY_MS);
+    private findPostById(id: number): import('@models').BakabooruPostDto | null {
+        for (const page of this.pageCache().values()) {
+            if (page.status === 'ready') {
+                const match = page.items.find(p => p.id === id);
+                if (match) return match;
+            }
+        }
+        return null;
     }
 
-    onPostMouseLeave(event: MouseEvent): void {
+    private handleViewportMouseOver(event: MouseEvent): void {
+        const target = event.target as HTMLElement | null;
+        const tile = target?.closest('.post-tile');
+        if (!tile) return;
+
+        const idStr = tile.getAttribute('data-post-id');
+        if (idStr) {
+            const postId = parseInt(idStr, 10);
+            if (!Number.isNaN(postId)) {
+                const post = this.findPostById(postId);
+                if (post) {
+                    this.clearHoverPreviewTimer();
+                    this.hoverPreviewTimer = setTimeout(() => {
+                        this.zone.run(() => this.previewPost.set(post));
+                    }, PostsComponent.HOVER_PREVIEW_DELAY_MS);
+                }
+            }
+        }
+    }
+
+    private handleViewportMouseOut(event: MouseEvent): void {
         this.clearHoverPreviewTimer();
         if (this.previewPost() !== null) {
-            // Keep the preview if the mouse moved into the card
-            // (either because the card appeared under the cursor, or the user moved into it).
-            // relatedTarget.closest() handles both cases reliably.
             const related = event.relatedTarget as Element | null;
             if (related?.closest('[data-preview-card]')) {
                 return;
             }
-            this.previewPost.set(null);
+            this.zone.run(() => this.previewPost.set(null));
         }
     }
 
@@ -1134,7 +1172,7 @@ export class PostsComponent implements AfterViewInit {
         return this.getPostRowId(position.page, position.rowOffsetInPage - 1);
     }
 
-    private getVirtualRowPosition(rowIndex: number): VirtualRowPosition | null {
+    getVirtualRowPosition(rowIndex: number): VirtualRowPosition | null {
         return getVirtualRowPosition(
             rowIndex,
             this.virtualRowCount(),

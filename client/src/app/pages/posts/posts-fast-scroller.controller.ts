@@ -1,4 +1,4 @@
-import { Injectable, signal } from '@angular/core';
+import { Injectable, signal, inject, NgZone } from '@angular/core';
 
 interface FastScrollerViewportMetrics {
     viewportHeight: number;
@@ -23,6 +23,8 @@ export class PostsFastScrollerController {
     private static readonly FAST_SCROLLER_MIN_THUMB_PX = 44;
     private static readonly FAST_SCROLLER_HIDE_DELAY_MS = 250;
     private static readonly FAST_SCROLLER_BUBBLE_HEIGHT_PX = 36;
+
+    private readonly zone = inject(NgZone);
 
     private bindings: PostsFastScrollerBindings | null = null;
 
@@ -122,16 +124,20 @@ export class PostsFastScrollerController {
             return;
         }
 
-        this.fastScrollerRafId = requestAnimationFrame(() => {
-            this.fastScrollerRafId = null;
+        this.zone.runOutsideAngular(() => {
+            this.fastScrollerRafId = requestAnimationFrame(() => {
+                this.zone.run(() => {
+                    this.fastScrollerRafId = null;
 
-            const clientY = this.pendingFastScrollerClientY;
-            this.pendingFastScrollerClientY = null;
-            if (clientY === null) {
-                return;
-            }
+                    const clientY = this.pendingFastScrollerClientY;
+                    this.pendingFastScrollerClientY = null;
+                    if (clientY === null) {
+                        return;
+                    }
 
-            this.applyFastScrollerPointer(clientY);
+                    this.applyFastScrollerPointer(clientY);
+                });
+            });
         });
     }
 
