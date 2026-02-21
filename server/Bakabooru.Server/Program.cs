@@ -17,8 +17,6 @@ builder.Services.Configure<BakabooruConfig>(builder.Configuration.GetSection(Bak
 
 // Add services to the container.
 builder.Services.AddControllers();
-builder.Services.AddEndpointsApiExplorer();
-builder.Services.AddSwaggerGen();
 
 if (authEnabled)
 {
@@ -138,13 +136,6 @@ using (var scope = app.Services.CreateScope())
     }
 }
 
-// Configure the HTTP request pipeline.
-if (app.Environment.IsDevelopment())
-{
-    app.UseSwagger();
-    app.UseSwaggerUI();
-}
-
 app.UseCors("AllowAngular");
 
 if (authEnabled)
@@ -212,7 +203,6 @@ app.UseAuthorization();
 
 app.MapControllers();
 
-// Redirect root to swagger
-app.MapGet("/", () => Results.Redirect("/swagger"));
+app.MapGet("/", () => Results.Text("Bakabooru API"));
 
 app.Run();

@@ -58,13 +58,19 @@ public class AuthController : ControllerBase
         return Ok(new AuthSessionDto
         {
             Username = auth.Username,
-            IsAuthenticated = true
+            IsAuthenticated = true,
+            AuthEnabled = true
         });
     }
 
     [HttpPost("logout")]
     public async Task<IActionResult> Logout()
     {
+        if (!_config.Value.Auth.Enabled)
+        {
+            return NoContent();
+        }
+
         await HttpContext.SignOutAsync(CookieAuthenticationDefaults.AuthenticationScheme);
         return NoContent();
     }
@@ -73,6 +79,17 @@ public class AuthController : ControllerBase
     [HttpGet("me")]
     public ActionResult<AuthSessionDto> Me()
     {
+        var auth = _config.Value.Auth;
+        if (!auth.Enabled)
+        {
+            return Ok(new AuthSessionDto
+            {
+                Username = string.IsNullOrWhiteSpace(auth.Username) ? "local" : auth.Username,
+                IsAuthenticated = true,
+                AuthEnabled = false
+            });
+        }
+
         var isAuthenticated = User.Identity?.IsAuthenticated ?? false;
         if (!isAuthenticated)
         {
@@ -82,7 +99,8 @@ public class AuthController : ControllerBase
         return Ok(new AuthSessionDto
         {
             Username = User.Identity?.Name ?? "user",
-            IsAuthenticated = true
+            IsAuthenticated = true,
+            AuthEnabled = true
         });
     }
 }

@@ -22,6 +22,7 @@ export interface NavbarLink {
 export class NavbarComponent {
   links = input<NavbarLink[]>([]);
   currentUser = input<string | null | undefined>('');
+  authEnabled = input<boolean>(true);
 
   logout = output<void>();
   navigated = output<void>();

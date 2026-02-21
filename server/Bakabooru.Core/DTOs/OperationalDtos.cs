@@ -171,4 +171,5 @@ public class AuthSessionDto
 {
     public string Username { get; set; } = string.Empty;
     public bool IsAuthenticated { get; set; }
+    public bool AuthEnabled { get; set; } = true;
 }

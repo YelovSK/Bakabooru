@@ -46,6 +46,7 @@ export class BakabooruService {
     // Client auth state.
     authHeader = signal<string | null>(null);
     currentUser = signal<string | null>(null);
+    authEnabled = signal(true);
     isLoggedIn = computed(() => !!this.currentUser());
     private authChecked = signal(false);
 
@@ -64,6 +65,7 @@ export class BakabooruService {
         return this.http.post<AuthSessionResponse>(`${this.baseUrl}/auth/login`, { username, password }).pipe(
             map(response => {
                 this.currentUser.set(response.username);
+                this.authEnabled.set(response.authEnabled);
                 this.authChecked.set(true);
                 return;
             })
@@ -73,7 +75,9 @@ export class BakabooruService {
     logout(): Observable<void> {
         return this.http.post<void>(`${this.baseUrl}/auth/logout`, {}).pipe(
             map(() => {
-                this.currentUser.set(null);
+                if (this.authEnabled()) {
+                    this.currentUser.set(null);
+                }
                 this.authChecked.set(true);
             })
         );
@@ -91,11 +95,13 @@ export class BakabooruService {
         this.authCheckInFlight$ = this.http.get<AuthSessionResponse>(`${this.baseUrl}/auth/me`).pipe(
             map(response => {
                 this.currentUser.set(response.username);
+                this.authEnabled.set(response.authEnabled);
                 this.authChecked.set(true);
                 return true;
             }),
             catchError(() => {
                 this.currentUser.set(null);
+                this.authEnabled.set(true);
                 this.authChecked.set(true);
                 return of(false);
             }),

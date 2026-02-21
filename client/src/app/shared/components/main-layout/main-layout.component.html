@@ -2,7 +2,7 @@
 <app-confirm-dialog></app-confirm-dialog>
 
 <div class="flex min-h-dvh flex-col bg-bg-primary">
-    <app-navbar [links]="navLinks" [currentUser]="currentUser" (logout)="onLogout()"></app-navbar>
+    <app-navbar [links]="navLinks" [currentUser]="currentUser" [authEnabled]="authEnabled" (logout)="onLogout()"></app-navbar>
 
     <main class="flex-1 min-h-0 overflow-y-auto">
         <div [class]="pageContainerClasses()">

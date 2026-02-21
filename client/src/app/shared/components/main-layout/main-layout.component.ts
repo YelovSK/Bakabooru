@@ -65,6 +65,10 @@ export class MainLayoutComponent {
     return this.bakabooru.currentUser();
   }
 
+  get authEnabled() {
+    return this.bakabooru.authEnabled();
+  }
+
   private resolvePageWidth(): PageWidth {
     let route = this.activatedRoute.firstChild;
 

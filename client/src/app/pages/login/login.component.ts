@@ -1,4 +1,4 @@
-import { Component, ChangeDetectionStrategy, inject, signal } from '@angular/core';
+import { Component, ChangeDetectionStrategy, OnInit, inject, signal } from '@angular/core';
 
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
@@ -13,7 +13,7 @@ import { AppLinks } from '@app/app.paths';
   styleUrl: './login.component.css',
   changeDetection: ChangeDetectionStrategy.OnPush
 })
-export class LoginComponent {
+export class LoginComponent implements OnInit {
   private readonly bakabooru = inject(BakabooruService);
   private readonly router = inject(Router);
 
@@ -21,6 +21,14 @@ export class LoginComponent {
   password = '';
   loading = signal(false);
   error = signal('');
+
+  ngOnInit() {
+    this.bakabooru.ensureAuthState().subscribe(isLoggedIn => {
+      if (isLoggedIn) {
+        this.router.navigate(AppLinks.posts());
+      }
+    });
+  }
 
   onLogin() {
     if (!this.username || !this.password) return;

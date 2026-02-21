@@ -11,6 +11,7 @@ export interface PagedSearchResult<T> {
 export interface AuthSessionResponse {
     username: string;
     isAuthenticated: boolean;
+    authEnabled: boolean;
 }
 
 export interface LibraryIgnoredPath {
