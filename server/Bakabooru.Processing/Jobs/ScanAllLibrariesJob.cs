@@ -28,11 +28,13 @@ public class ScanAllLibrariesJob : IJob
         var scannerService = scope.ServiceProvider.GetRequiredService<IScannerService>();
 
         var phase = "Scanning libraries...";
+        var currentProcessed = 0;
 
         var progress = new Progress<float>(percent =>
         {
             var normalized = percent <= 1f ? percent * 100f : percent;
             var processed = (int)Math.Clamp(Math.Round(normalized), 0, 100);
+            currentProcessed = processed;
             context.State.Report(new JobState
             {
                 Phase = phase,
@@ -47,8 +49,8 @@ public class ScanAllLibrariesJob : IJob
             context.State.Report(new JobState
             {
                 Phase = phase,
-                Processed = null,
-                Total = null
+                Processed = currentProcessed,
+                Total = 100
             });
         });
 

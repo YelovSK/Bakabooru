@@ -71,6 +71,16 @@ public class ExtractMetadataJob : IJob
         int processed = 0;
         int failed = 0;
 
+        JobState BuildLiveState() => new()
+        {
+            Phase = "Extracting metadata...",
+            Processed = Math.Min(totalPosts, processed + failed),
+            Total = totalPosts,
+            Succeeded = processed,
+            Failed = failed,
+            Summary = $"Processed {processed + failed}/{totalPosts}"
+        };
+
         var lastId = 0;
 
         // Process in bounded batches to keep memory usage stable regardless of DB size.
@@ -121,11 +131,13 @@ public class ExtractMetadataJob : IJob
 
                         results.Add((post.Id, metadata.Width, metadata.Height, contentType));
                         Interlocked.Increment(ref processed);
+                        context.State.Report(BuildLiveState());
                     }
                     catch (Exception ex)
                     {
                         Interlocked.Increment(ref failed);
                         _logger.LogWarning(ex, "Failed to extract metadata for post {Id}: {Path}", post.Id, post.RelativePath);
+                        context.State.Report(BuildLiveState());
                     }
                 });
 
@@ -146,16 +158,7 @@ public class ExtractMetadataJob : IJob
 
             await db.SaveChangesAsync(context.CancellationToken);
 
-            var total = processed + failed;
-            context.State.Report(new JobState
-            {
-                Phase = "Extracting metadata...",
-                Processed = total,
-                Total = totalPosts,
-                Succeeded = processed,
-                Failed = failed,
-                Summary = $"Processed {total}/{totalPosts}"
-            });
+            context.State.Report(BuildLiveState());
         }
 
         context.State.Report(new JobState

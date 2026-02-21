@@ -36,6 +36,7 @@ import { AutocompleteComponent } from '@shared/components/autocomplete/autocompl
 import { escapeTagName } from '@shared/utils/utils';
 import { AppLinks, AppPaths } from '@app/app.paths';
 import { StorageService, STORAGE_KEYS } from '@services/storage.service';
+import { SettingsService } from '@services/settings.service';
 import { PostPreviewOverlayComponent } from '@shared/components/post-preview-overlay/post-preview-overlay.component';
 import {
     getFirstVisibleOffsetForRowIndex,
@@ -115,6 +116,7 @@ export class PostsComponent implements AfterViewInit {
     private readonly bakabooru = inject(BakabooruService);
     private readonly router = inject(Router);
     private readonly storage = inject(StorageService);
+    private readonly settingsService = inject(SettingsService);
     private readonly hotkeys = inject(HotkeysService);
     private readonly destroyRef = inject(DestroyRef);
     private readonly pageCacheStore = inject(PostsPageCacheStore);
@@ -144,6 +146,15 @@ export class PostsComponent implements AfterViewInit {
     readonly isInitialLoading = this.pageCacheStore.isInitialLoading;
 
     readonly pageCache = this.pageCacheStore.pageCache;
+    readonly hoverPreviewEnabled = this.settingsService.enablePostPreviewOnHover;
+    readonly hoverPreviewDelayMs = computed(() => {
+        const raw = this.settingsService.postPreviewDelayMs();
+        if (!Number.isFinite(raw)) {
+            return PostsComponent.HOVER_PREVIEW_DELAY_MS;
+        }
+
+        return Math.max(0, Math.min(5000, Math.round(raw)));
+    });
 
     anchorPageHint = signal(1);
 
@@ -243,6 +254,15 @@ export class PostsComponent implements AfterViewInit {
                 this.tryApplyPendingAnchor();
                 this.refreshFastScrollerGeometry();
             });
+        });
+
+        effect(() => {
+            if (this.hoverPreviewEnabled()) {
+                return;
+            }
+
+            this.clearHoverPreviewTimer();
+            this.previewPost.set(null);
         });
 
         this.fastScroller.configure({
@@ -516,6 +536,10 @@ export class PostsComponent implements AfterViewInit {
     }
 
     private handleViewportMouseOver(event: MouseEvent): void {
+        if (!this.hoverPreviewEnabled()) {
+            return;
+        }
+
         const target = event.target as HTMLElement | null;
         const tile = target?.closest('.post-tile');
         if (!tile) return;
@@ -529,7 +553,7 @@ export class PostsComponent implements AfterViewInit {
                     this.clearHoverPreviewTimer();
                     this.hoverPreviewTimer = setTimeout(() => {
                         this.zone.run(() => this.previewPost.set(post));
-                    }, PostsComponent.HOVER_PREVIEW_DELAY_MS);
+                    }, this.hoverPreviewDelayMs());
                 }
             }
         }

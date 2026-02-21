@@ -1,9 +1,11 @@
 using Bakabooru.Core.Entities;
+using Bakabooru.Core.Config;
 using Bakabooru.Core.Interfaces;
 using Bakabooru.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using System.Collections.Concurrent;
 
 namespace Bakabooru.Processing.Services;
@@ -19,14 +21,17 @@ public class JobService : IJobService
     private readonly IServiceScopeFactory _scopeFactory;
     private readonly Dictionary<string, IJob> _registeredJobsByKey;
     private readonly Dictionary<string, IJob> _registeredJobsByName;
+    private readonly TimeSpan _jobProgressReportInterval;
 
     public JobService(
         ILogger<JobService> logger, 
         IServiceScopeFactory scopeFactory,
-        IEnumerable<IJob> jobs)
+        IEnumerable<IJob> jobs,
+        IOptions<BakabooruConfig> config)
     {
         _logger = logger;
         _scopeFactory = scopeFactory;
+        _jobProgressReportInterval = TimeSpan.FromMilliseconds(Math.Max(0, config.Value.Processing.JobProgressReportIntervalMs));
         _registeredJobsByKey = jobs
             .GroupBy(j => j.Key)
             .ToDictionary(g => g.Key, g => g.First(), StringComparer.OrdinalIgnoreCase);
@@ -199,7 +204,7 @@ public class JobService : IJobService
                             }
 
                             SetLatestState(state);
-                        })
+                        }, _jobProgressReportInterval)
                     };
 
                     await execute(context);
@@ -405,14 +410,34 @@ public class JobService : IJobService
     private sealed class InlineProgress<T> : IProgress<T>
     {
         private readonly Action<T> _onReport;
+        private readonly TimeSpan _minInterval;
+        private long _lastReportTicks;
 
-        public InlineProgress(Action<T> onReport)
+        public InlineProgress(Action<T> onReport, TimeSpan minInterval)
         {
             _onReport = onReport;
+            _minInterval = minInterval;
+            _lastReportTicks = 0;
         }
 
         public void Report(T value)
         {
+            if (_minInterval > TimeSpan.Zero)
+            {
+                var nowTicks = DateTime.UtcNow.Ticks;
+                var lastTicks = Interlocked.Read(ref _lastReportTicks);
+
+                if (lastTicks != 0 && nowTicks - lastTicks < _minInterval.Ticks)
+                {
+                    return;
+                }
+
+                if (Interlocked.CompareExchange(ref _lastReportTicks, nowTicks, lastTicks) != lastTicks)
+                {
+                    return;
+                }
+            }
+
             _onReport(value);
         }
     }

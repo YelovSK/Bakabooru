@@ -5,11 +5,15 @@ import { StorageService, STORAGE_KEYS } from './storage.service';
 export interface PostSettings {
   autoPlayVideos: boolean;
   startVideosMuted: boolean;
+  enablePostPreviewOnHover: boolean;
+  postPreviewDelayMs: number;
 }
 
 const DEFAULT_POST_SETTINGS: PostSettings = {
   autoPlayVideos: true,
   startVideosMuted: false,
+  enablePostPreviewOnHover: true,
+  postPreviewDelayMs: 700,
 };
 
 @Injectable({
@@ -28,6 +32,12 @@ export class SettingsService {
 
   /** Convenience computed for start muted */
   readonly startVideosMuted = computed(() => this._postSettings().startVideosMuted);
+
+  /** Convenience computed for hover preview enabled */
+  readonly enablePostPreviewOnHover = computed(() => this._postSettings().enablePostPreviewOnHover);
+
+  /** Convenience computed for hover preview delay */
+  readonly postPreviewDelayMs = computed(() => this._postSettings().postPreviewDelayMs);
 
   private loadPostSettings(): PostSettings {
     const saved = this.storage.getJson<PostSettings>(STORAGE_KEYS.POST_SETTINGS);

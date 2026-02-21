@@ -90,6 +90,17 @@ public class GenerateThumbnailsJob : IJob
             CancellationToken = context.CancellationToken
         };
 
+        JobState BuildLiveState() => new()
+        {
+            Phase = "Generating thumbnails...",
+            Processed = Math.Min(totalCandidates, processed + failed + skipped),
+            Total = totalCandidates,
+            Succeeded = processed,
+            Failed = failed,
+            Skipped = skipped,
+            Summary = $"Generated {processed}, skipped {skipped}, failed {failed}"
+        };
+
         const int batchSize = 20;
         while (true)
         {
@@ -135,24 +146,17 @@ public class GenerateThumbnailsJob : IJob
                     }
                     await mediaFileProcessor.GenerateThumbnailAsync(fullPath, destination, 400, ct);
                     Interlocked.Increment(ref processed);
+                    context.State.Report(BuildLiveState());
                 }
                 catch (Exception ex)
                 {
                     Interlocked.Increment(ref failed);
                     _logger.LogWarning(ex, "Failed to generate thumbnail for post {Id}: {Path}", post.Id, post.RelativePath);
+                    context.State.Report(BuildLiveState());
                 }
             });
 
-            context.State.Report(new JobState
-            {
-                Phase = "Generating thumbnails...",
-                Processed = scanned,
-                Total = totalCandidates,
-                Succeeded = processed,
-                Failed = failed,
-                Skipped = skipped,
-                Summary = $"Generated {processed}, skipped {skipped}, failed {failed}"
-            });
+            context.State.Report(BuildLiveState());
         }
 
         context.State.Report(new JobState

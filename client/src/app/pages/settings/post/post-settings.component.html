@@ -29,4 +29,39 @@
       </p>
     </div>
   </div>
+
+  <div class="border-t border-glass-border/50"></div>
+
+  <div class="flex items-start gap-4">
+    <app-form-checkbox
+      [ngModel]="settings().enablePostPreviewOnHover"
+      (ngModelChange)="onHoverPreviewChange($event)"
+      label="Enable post preview on hover"
+    />
+    <div class="flex-1">
+      <p class="text-text-muted text-sm mt-0.5">
+        Show large preview when hovering a post tile in the posts grid.
+      </p>
+    </div>
+  </div>
+
+  @if (settings().enablePostPreviewOnHover) {
+  <div class="flex items-start gap-4">
+    <div class="w-72">
+      <app-form-number-input
+        [ngModel]="settings().postPreviewDelayMs"
+        (ngModelChange)="onHoverPreviewDelayChange($event)"
+        label="Post preview delay (ms)"
+        [min]="0"
+        [max]="5000"
+        [step]="50"
+      />
+    </div>
+    <div class="flex-1">
+      <p class="text-text-muted text-sm mt-7">
+        Delay before showing hover preview. Set to 0 for instant preview.
+      </p>
+    </div>
+  </div>
+  }
 </div>

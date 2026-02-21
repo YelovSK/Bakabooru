@@ -74,6 +74,16 @@ public class ComputeSimilarityJob : IJob
         int failed = 0;
         var lastId = 0;
 
+        JobState BuildLiveState(string phase) => new()
+        {
+            Phase = phase,
+            Processed = Math.Min(totalCandidates, processed + failed),
+            Total = totalCandidates,
+            Succeeded = processed,
+            Failed = failed,
+            Summary = $"Computed {processed} hashes ({failed} failed)"
+        };
+
         const int batchSize = 100;
         while (true)
         {
@@ -129,11 +139,13 @@ public class ComputeSimilarityJob : IJob
 
                         results.Add((post.Id, hashes));
                         Interlocked.Increment(ref processed);
+                        context.State.Report(BuildLiveState("Computing similarity hashes..."));
                     }
                     catch (Exception ex)
                     {
                         Interlocked.Increment(ref failed);
                         _logger.LogWarning(ex, "Failed to compute similarity hash for post {Id}: {Path}", post.Id, post.RelativePath);
+                        context.State.Report(BuildLiveState("Computing similarity hashes..."));
                     }
                 });
 
@@ -153,15 +165,7 @@ public class ComputeSimilarityJob : IJob
 
             await db.SaveChangesAsync(context.CancellationToken);
 
-            context.State.Report(new JobState
-            {
-                Phase = "Computing similarity hashes...",
-                Processed = scanned,
-                Total = totalCandidates,
-                Succeeded = processed,
-                Failed = failed,
-                Summary = $"Computed {processed} hashes ({failed} failed)"
-            });
+            context.State.Report(BuildLiveState("Computing similarity hashes..."));
         }
 
         context.State.Report(new JobState
